@@ -1,4 +1,5 @@
 #!/bin/bash
+# Optional arguments: first and last band (default 211 280).
 
 
 if [ $RAD_BIN ] ; then
@@ -29,7 +30,7 @@ mkdir -p ${SP_DIR}
 ./mk_sp_sw_280_je_venus_skel ${SKELFILE}
 
 echo "Generating SO2 line absorption data"
-for ((i = 211; i < 281; i++))
+for ((i = ${1:-211}; i <= ${2:-280}; i++))
 do
   if [ ! -s $SW_DATA/so2_lbl_s${i}_${PT_FILE}.nc ] ; then
     rm -f $SW_DATA/so2_lbl${i}_l*
@@ -40,7 +41,7 @@ do
       -o $SW_DATA/so2_lbl${i}_l -m $SW_DATA/so2_lbl${i}_lm \
       -L $SW_DATA/so2_lbl_s${i}_${PT_FILE}.nc \
       -np $procs \
-      > $SW_DATA/so2_lbl_log
+      > $SW_DATA/so2_lbl${i}_log
   fi 
 done
 

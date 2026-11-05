@@ -1,0 +1,21 @@
+#!/bin/bash
+# Makes every line-by-line absorption file of the recipe, several jobs at a
+# time. CO2 and SO2 run one band per job; the other gases run their scripts
+# whole. A job skips any file that already exists, so rerunning completes an
+# interrupted set. A job killed part-way can leave a truncated file that is
+# then skipped: delete the files of any job reported as failed before
+# rerunning.
+# Usage, inside the container: ./podman_socrates ./run_lbl <jobs at once>
+# Threads per job: VENUS_SW_PROCS, default 8.
+set -eu
+njobs=$1
+export VENUS_SW_PROCS=${VENUS_SW_PROCS:-8}
+. ./env_sw_280_venus
+mkdir -p "$SW_DATA" "$SP_DIR"
+./mk_sp_sw_280_je_venus_skel "$SKELFILE" > /dev/null
+
+{
+  for b in $(seq 211 280); do echo "./mk_so2_lbl_sw_280_je_venus $b $b"; done
+  for b in $(seq 104 280); do echo "./mk_co2_lbl_sw_280_je_venus $b $b"; done
+  for g in h2o hdo co ocs hcl hf h2s; do echo "./mk_${g}_lbl_sw_280_je_venus"; done
+} | xargs -P "$njobs" -I{} sh -c '{} > /dev/null 2>&1 && echo "done: {}" || echo "FAILED: {}"'
