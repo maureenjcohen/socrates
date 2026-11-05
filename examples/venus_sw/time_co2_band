@@ -1,0 +1,29 @@
+#!/bin/bash
+# Times the CO2 line-by-line step for one band, with the settings of
+# mk_co2_lbl_sw_280_je_venus, and reports the wall time and the size of the
+# line-by-line file. Output goes to $VENUS_SW_WORK/timing/, apart from the
+# main work tree, so it is never mistaken for a production file.
+# Usage, inside the container: ./podman_socrates ./time_co2_band <band> <threads>
+set -eu
+. ./env_sw_280_venus
+band=$1
+threads=$2
+out=$VENUS_SW_WORK/timing/co2_b${band}_np${threads}
+rm -rf "$out"
+mkdir -p "$out" "$SP_DIR"
+./mk_sp_sw_280_je_venus_skel "$SKELFILE" > /dev/null
+
+start=$(date +%s)
+Ccorr_k -F ${GAS_DATA_DIR}/${PT_FILE} -BD $LINE_DATA_DIR/HITRAN2020_CO2.bpar \
+  -R ${band} ${band} -c 5000.0 -i 1.0 \
+  -l 2 ${COL_MASS_K_CO2} -n 1 \
+  -sb ${GAS_DATA_DIR}/gas_fractions_09_10 -lp 2 \
+  -s ${SKELFILE} +S $SOLSPEC -lk \
+  -o $out/co2_l -m $out/co2_lm \
+  -L $out/co2_lbl.nc \
+  -np $threads \
+  > $out/log 2>&1
+end=$(date +%s)
+
+echo "band $band, $threads threads: $((end - start)) s," \
+     "line-by-line file $(du -h $out/co2_lbl.nc | cut -f1)"

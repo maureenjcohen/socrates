@@ -3,8 +3,10 @@
 # no command is given. This SOCRATES tree, VENUS_SW_WORK and LINE_DATA_DIR are
 # mounted at the same paths as on the host, so paths in the scripts work on
 # both sides. The container hostname lfric_dev makes build_code pick
-# make/Mk_cmd_lfric_dev. The command runs in this directory, with
-# set_rad_env sourced once SOCRATES has been built.
+# make/Mk_cmd_lfric_dev. Any argument that is an absolute path to an existing
+# directory is mounted read-only at the same path, so input directories named
+# on the command line are visible inside. The command runs in this directory,
+# with set_rad_env sourced once SOCRATES has been built.
 #
 # Settings, from the environment:
 #   VENUS_SW_WORK     work directory for line-by-line and k files (required)
@@ -31,8 +33,15 @@ else
   cmd=(bash -l -c "$setup; $*")
 fi
 
+extra=()
+for arg in "$@"; do
+  if [[ $arg == /* && -d $arg ]]; then
+    extra+=(-v "$arg:$arg:ro")
+  fi
+done
+
 exec "$engine" run --rm "${tty[@]}" --hostname lfric_dev --ulimit stack=-1 \
   -e VENUS_SW_WORK -e LINE_DATA_DIR -e VENUS_SW_PROCS="${VENUS_SW_PROCS:-}" \
   -v "$rad_dir:$rad_dir" -v "$VENUS_SW_WORK:$VENUS_SW_WORK" \
-  -v "$LINE_DATA_DIR:$LINE_DATA_DIR:ro" \
+  -v "$LINE_DATA_DIR:$LINE_DATA_DIR:ro" "${extra[@]}" \
   -w "$here" "$image" "${cmd[@]}"
