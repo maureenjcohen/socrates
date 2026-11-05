@@ -1,0 +1,65 @@
+Venus shortwave spectral file, 280 bands, 0.175-20 microns
+==========================================================
+
+Recipe for sp_sw_280_je_venus: 13 gases (H2O, CO2, SO2, N2, CO, OCS, H2S,
+HDO, HCl, HF, cis-OSSO, trans-OSSO, OSO-S), H2O-H2O and CO2-CO2 continua,
+and five aerosol slots holding the Venus cloud modes. The p-T grid,
+data/gases/ptVenus, runs from 3.3e-6 to 9.2e6 Pa and 92 to 781 K.
+
+Environment
+-----------
+VENUS_SW_WORK   work directory; line-by-line files go in lbl/, k files and
+                the spectral file in sp/
+LINE_DATA_DIR   directory holding the line lists listed below
+VENUS_SW_PROCS  OpenMP threads per Ccorr_k call (each script has a default)
+
+Container and build
+-------------------
+podman_socrates   runs a command (or a shell) in the lfric_dev container
+build             builds SOCRATES: ./podman_socrates ./build
+check_corr_k      checks corr_k and prep_spec against examples/corr_k
+check_je_file     runs an existing JE file through l_run_cdf and compares
+                  with JE's stored output: ./check_je_file <je_ref_dir>
+num_diff          number-by-number comparison of two text files
+
+Spectral file
+-------------
+env_sw_280_venus             paths, maximum absorber paths, data file names
+mk_sp_sw_280_je_venus_skel   skeleton: bands, gases, continua, aerosols
+mk_<gas>_lbl_sw_280_je_venus line-by-line absorption for one gas (slow)
+mk_sp_sw_280_je_venus        k-terms from the line-by-line files, then the
+                             spectral file
+cis-OSSO.uvxsc, trans-OSSO.uvxsc, OSO-S.uvxsc, pt_single
+                             UV cross-sections for the OSSO isomers
+
+Column runs
+-----------
+mk_venus_atm            venus_atm_obs_so2.raw and the venus_mode* cloud
+                        profiles -> venus.<suffix> netCDF inputs
+planet.nml              Venus constants for Cl_run_cdf -N
+Run: Cl_run_cdf -N planet.nml -B venus -s sp_sw_280_je_venus -R 1 280 -S
+     -r -g 4 -u -C 5 -ch 280 -a
+
+Line lists (not in git)
+-----------------------
+HITRAN2020 (doi:10.1016/j.jqsrt.2021.107949). .par: air-broadened,
+downloaded 2022-10-27 (H2S 2022-11-15). .bpar: bespoke format, all CO2
+isotopologues with self-broadening, 2022-11-15. .par_co2: CO2-broadened,
+2022-11-15. .bpar and .par_co2 are read with Ccorr_k -BD, .par with -D.
+
+md5sum                            file
+f4d461dfc13a4ff17c451f093c460a57  HITRAN2020_CO.par
+b4fd6c57494e630e22de68204fd3cfa9  HITRAN2020_CO.par_co2
+147e06517cdfa9ee3bb4028d0a47f1e6  HITRAN2020_CO2.bpar
+fedfd90a299f869e2c3fd6072108eb92  HITRAN2020_CO2.par
+64fca76d4b0bc42746335e64b530161c  HITRAN2020_H2O.par
+474ac2988273914ac51488744c22db63  HITRAN2020_H2S.bpar
+bcf68eecf119f3f3bdf59b00a8368dc7  HITRAN2020_H2S.par
+6d47b66cc3d75f695aa573d362fd0a6e  HITRAN2020_HCl.par
+3abb3d8ca14a3eb13253a3e812a17018  HITRAN2020_HCl.par_co2
+678d7da49135b43c1fc2b68f57162358  HITRAN2020_HF.par
+9b7c0543f839a2c633a70d37cbaa0c8e  HITRAN2020_HF.par_co2
+453f9503b3c5e0d60d1e6d3e7cd9eb2b  HITRAN2020_OCS.par
+4f8ee2e8ab8176a0b8330289e45d33f0  HITRAN2020_OCS.par_co2
+5f5b14a8ac71039165e3bef23b920235  HITRAN2020_SO2.par
+db84d3b2ea2e29c96f4c4c40f2433488  HITRAN2020_SO2.par_co2

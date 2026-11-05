@@ -1,0 +1,15 @@
+#!/bin/bash
+# Toolchain gate for corr_k and prep_spec: runs upstream's examples/corr_k
+# case. Its run_me passes only on a byte-for-byte match with a shipped
+# reference, so on a mismatch the files are also compared number by number.
+# Run inside the container: ./podman_socrates ./check_corr_k
+here=$(cd "$(dirname "$0")" && pwd)
+cd "$here/../corr_k"
+if ./run_me; then
+  exit 0
+fi
+for f in sp_lw_300 sp_lw_300_k; do
+  ref=${f/sp_lw_300/sp_lw_300_gfortran12}
+  new=${f/sp_lw_300/sp_lw_300_dev}
+  printf "%-24s " "$new"; "$here/num_diff" "$ref" "$new"
+done

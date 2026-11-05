@@ -1,0 +1,18 @@
+#
+# Pathnames for compilers and global options for naming files.
+# For the lfric_dev container: gfortran, with netCDF-Fortran in /opt/netcdf.
+# That netCDF is built against MPICH-parallel HDF5, so the HDF5 library
+# directory is on the run-time path too.
+#
+FORTCOMP        = gfortran -O -c
+LINK            = gfortran -O -Wl,-rpath=/opt/netcdf/lib -Wl,-rpath=/usr/lib/x86_64-linux-gnu/hdf5/mpich -L/usr/lib/x86_64-linux-gnu/hdf5/mpich
+LIBLINK         = ar rvu
+INCCDF_PATH     = /opt/netcdf/include
+LIBCDF_PATH     = /opt/netcdf/lib
+LIBCDF_NAME     = netcdff
+OMPARG          = -fopenmp
+FLAGS_ODEPACK   = -w -std=legacy -fallow-argument-mismatch
+
+LIBSUFFIX       = a
+
+.SUFFIXES: $(SUFFIXES) .f90

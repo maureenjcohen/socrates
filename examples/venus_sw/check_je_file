@@ -1,0 +1,22 @@
+#!/bin/bash
+# Toolchain gate for the solver: runs the JE spectral file through this
+# build's l_run_cdf with the options of JE's own runs, and compares fluxes and
+# heating rates with the output JE stored from the same file and inputs.
+# Usage, inside the container: ./podman_socrates ./check_je_file <je_ref_dir>
+# <je_ref_dir> holds sp_sw_280_je_venus and its _k file, planet.nml, the
+# venus.* input files, and JE's stored output as ref/venus_inc_s2o2.<ext>.
+set -eu
+here=$(cd "$(dirname "$0")" && pwd)
+ref=$(cd "$1" && pwd)
+run=$VENUS_SW_WORK/check_je_file
+rm -rf "$run"; mkdir -p "$run"; cd "$run"
+cp "$ref"/venus.* "$ref/planet.nml" .
+ln -s "$ref/sp_sw_280_je_venus" "$ref/sp_sw_280_je_venus_k" .
+Cl_run_cdf -N planet.nml -B venus -s sp_sw_280_je_venus -R 1 280 -S \
+  -r -g 4 -u -C 5 -ch 280 -a > l_run_cdf.log 2>&1
+for ext in uflx dflx sflx vflx nflx hrts aflx; do
+  if [ ! -s "venus.$ext" ]; then echo "$ext: not written"; continue; fi
+  Ccdf2cdl -o "new.$ext" "venus.$ext" > /dev/null
+  Ccdf2cdl -o "old.$ext" "$ref/ref/venus_inc_s2o2.$ext" > /dev/null
+  printf "%-5s " "$ext"; "$here/num_diff" "old.$ext" "new.$ext"
+done

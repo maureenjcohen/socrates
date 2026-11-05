@@ -1,0 +1,43 @@
+#!/bin/bash
+
+if [ $RAD_BIN ] ; then
+  echo "Using code compiled in "$RAD_BIN
+else
+  echo "Path to code not set."
+  exit 1
+fi
+
+# Set environment variables
+procs=${VENUS_SW_PROCS:-24}
+. ./env_sw_280_venus
+
+HITRAN_CO2="$LINE_DATA_DIR/HITRAN2020_CO2.bpar"
+if [ ! -s $HITRAN_CO2 ] ; then
+    echo "$HITRAN_CO2 not found or is empty"
+fi
+
+mkdir -p ${SW_DATA}
+mkdir -p ${SP_DIR}
+./mk_sp_sw_280_je_venus_skel ${SKELFILE}
+
+echo "Generating CO2 line absorption data"
+for ((i = 104; i < 281; i++))
+do
+  if [ ! -s $SW_DATA/co2_sblbl_s${i}_${PT_FILE}_gf0.9-1.0.nc ] ; then
+    rm -f $SW_DATA/co2_lbl${i}_l*
+    Ccorr_k -F ${GAS_DATA_DIR}/${PT_FILE} -BD $HITRAN_CO2 \
+      -R ${i} ${i} -c 5000.0 -i 1.0 \
+      -l 2 ${COL_MASS_K_CO2} -n 1 \
+      -sb ${GAS_DATA_DIR}/gas_fractions_09_10 -lp 2 \
+      -s ${SKELFILE} +S $SOLSPEC -lk \
+      -o $SW_DATA/co2_lbl${i}_l -m $SW_DATA/co2_lbl${i}_lm \
+      -L $SW_DATA/co2_sblbl_s${i}_${PT_FILE}_gf0.9-1.0.nc \
+      -np $procs \
+      > $SW_DATA/co2_lbl_log
+  else
+    echo "CO2 absorption file already exists"
+  fi 
+done
+
+
+exit 0

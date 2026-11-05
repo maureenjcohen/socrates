@@ -1,0 +1,49 @@
+# Line-by-line absorption files (large, slow to make) and the spectral file
+# with its intermediate k files go under VENUS_SW_WORK, outside the source tree.
+# LINE_DATA_DIR holds the HITRAN line lists, which are not kept in git.
+VENUS_SW_WORK="${VENUS_SW_WORK:?Set VENUS_SW_WORK to the work directory}"
+LINE_DATA_DIR="${LINE_DATA_DIR:?Set LINE_DATA_DIR to the HITRAN line-list directory}"
+SW_DATA="${VENUS_SW_WORK}/lbl"
+SP_DIR="${VENUS_SW_WORK}/sp"
+
+SKELFILE="$SP_DIR/sp_sw_280_je_venus_skel"
+SPECFILE="$SP_DIR/sp_sw_280_je_venus"
+
+SOLFILE="sun"
+SOLSPEC="${RAD_DATA}/solar/${SOLFILE}"
+
+COL_MASS_K_CO2="1.014e+06"
+COL_MASS_K_H2O="1.289e+01"
+COL_MASS_K_SO2="2.290e+02"
+COL_MASS_K_OCS="2.736e+01"
+COL_MASS_K_CO="2.299E+01"
+COL_MASS_K_HDO="1.921E+00"
+COL_MASS_K_HCl="3.461e+00"
+COL_MASS_K_HF="6.017e-03"
+COL_MASS_K_H2S="1.163e+01"
+COL_MASS_K_cOSSO="1.397e+01"
+COL_MASS_K_tOSSO="1.105e+01"
+COL_MASS_K_yOSOS="1.737e-00"
+
+SAFE_COL_MASS_K_cOSSO="2.006e-04"
+SAFE_COL_MASS_K_tOSSO="1.056e-04"
+
+COL_H2OC="1.0e+03"
+COL_CO2C="1.0e7"
+
+GAS_DATA_DIR="${RAD_DATA}/gases"
+
+CONT_H2O_S260="${RAD_DATA}/continua/elsey_shine_s260"
+CONT_H2O_S296="${RAD_DATA}/continua/elsey_shine_s296"
+CONT_CO2_CO2="${RAD_DATA}/continua/CO2-CO2_2018.cia"
+HITRAN_UV_SO2="$GAS_DATA_DIR/SO2_UV08.xsc"
+
+PT_FILE="ptVenus"
+SO2_PT_FILE="$RAD_DATA/gases/pt_so2_uv"
+PT_UNSCALED="pt_single"
+REF_PT_FILE="$RAD_DATA/gases/ref_pt_280_venus"
+CONT_PT_FILE="$RAD_DATA/continua/pt_cont_100_400"
+
+ABSORBER="fecl3"
+DROPLET_CONC="0%"
+ABS_MODES=("mode1" "mode2" "modep" "mode3")

@@ -1,0 +1,39 @@
+#!/bin/bash
+
+
+if [ $RAD_BIN ] ; then
+  echo "Using code compiled in "$RAD_BIN
+else
+  echo "Path to code not set."
+  exit 1
+fi
+
+# Set environment variables
+procs=${VENUS_SW_PROCS:-12}
+. ./env_sw_280_venus
+
+HITRAN_HCl="$LINE_DATA_DIR/HITRAN2020_HCl.par_co2"
+if [ ! -s $HITRAN_HCl ] ; then
+  echo "$HITRAN_HCl does not exist or is empty"
+fi
+
+mkdir -p ${SW_DATA}
+mkdir -p ${SP_DIR}
+./mk_sp_sw_280_je_venus_skel ${SKELFILE}
+
+echo "Generating HCl line absorption data"
+if [ ! -s $SW_DATA/hcl_lbl_280_${PT_FILE}.nc ] ; then
+  rm -f $SW_DATA/hcl_lbl_280_l*
+  Ccorr_k -F ${GAS_DATA_DIR}/${PT_FILE} -BD $HITRAN_HCl \
+    -R 104 280 -c 5000.0 -i 0.2 \
+    -l 51 ${COL_MASS_K_HCl} -n 1 \
+    -s ${SKELFILE} +S $SOLSPEC -lk \
+    -o $SW_DATA/hcl_lbl_280_l -m $SW_DATA/hcl_lbl_280_lm \
+    -L $SW_DATA/hcl_lbl_280_${PT_FILE}.nc \
+    -np $procs \
+    > $SW_DATA/hcl_lbl_log
+else
+  echo "HCl absorption file already exists"
+fi
+
+exit 0

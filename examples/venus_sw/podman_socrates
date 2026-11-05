@@ -1,0 +1,38 @@
+#!/bin/bash
+# Runs a command inside the lfric_dev container, or an interactive shell when
+# no command is given. This SOCRATES tree, VENUS_SW_WORK and LINE_DATA_DIR are
+# mounted at the same paths as on the host, so paths in the scripts work on
+# both sides. The container hostname lfric_dev makes build_code pick
+# make/Mk_cmd_lfric_dev. The command runs in this directory, with
+# set_rad_env sourced once SOCRATES has been built.
+#
+# Settings, from the environment:
+#   VENUS_SW_WORK     work directory for line-by-line and k files (required)
+#   LINE_DATA_DIR     directory holding the HITRAN line lists (required)
+#   VENUS_SW_PROCS    OpenMP threads per Ccorr_k call (optional)
+#   CONTAINER_ENGINE  podman (default) or docker
+#   LFRIC_DEV_IMAGE   image name (default docker.io/maureenjcohen/lfric_dev:amd64)
+
+set -eu
+here=$(cd "$(dirname "$0")" && pwd)
+rad_dir=$(cd "$here/../.." && pwd)
+: "${VENUS_SW_WORK:?Set VENUS_SW_WORK to the work directory}"
+: "${LINE_DATA_DIR:?Set LINE_DATA_DIR to the HITRAN line-list directory}"
+mkdir -p "$VENUS_SW_WORK"
+engine=${CONTAINER_ENGINE:-podman}
+image=${LFRIC_DEV_IMAGE:-docker.io/maureenjcohen/lfric_dev:amd64}
+
+setup="if [ -r $rad_dir/set_rad_env ]; then . $rad_dir/set_rad_env; fi"
+if [ $# -eq 0 ]; then
+  tty=(-it)
+  cmd=(bash -l -c "$setup; exec bash -i")
+else
+  tty=()
+  cmd=(bash -l -c "$setup; $*")
+fi
+
+exec "$engine" run --rm "${tty[@]}" --hostname lfric_dev --ulimit stack=-1 \
+  -e VENUS_SW_WORK -e LINE_DATA_DIR -e VENUS_SW_PROCS="${VENUS_SW_PROCS:-}" \
+  -v "$rad_dir:$rad_dir" -v "$VENUS_SW_WORK:$VENUS_SW_WORK" \
+  -v "$LINE_DATA_DIR:$LINE_DATA_DIR:ro" \
+  -w "$here" "$image" "${cmd[@]}"

@@ -1,0 +1,80 @@
+#!/bin/bash
+echo "start"
+
+. ./env_sw_280_venus
+
+ATM_FILE="venus_atm_obs_so2.raw"
+
+
+#echo "Using absorber: $ABSORBER"
+
+# Convert the column data in venus_atm.raw into Socrates input file format
+rm -f venus_1*
+rm -f venus_2*
+rm -f venus_3*
+
+raw_input <<EOF > /dev/null
+$ATM_FILE
+venus
+n
+EOF
+
+Cgen_horiz_cdl -o venus_1.szen -n szen \
+                 -L "Solar zenith angle" -u "Degrees" \
+                 -F 51 -N 0.0 -T 0.0
+Cgen_horiz_cdl -o venus_1.stoa -n stoa \
+                 -L "Solar Irradiance" -u "W.m-2" \
+                 -F 2601.3 -N 0.0 -T 0.0
+Cgen_surf_cdl -o venus_1.surfsw -n alb \
+                 -L "Surface Albedo" -u "None" \
+                 -b 0.1 -N 0.0 -T 0.0
+
+# Convert to netCDF
+rm -f venus.*
+Ccdl2cdf -o venus.q venus_1.q
+Ccdl2cdf -o venus.co2 venus_1.co2
+Ccdl2cdf -o venus.n2 venus_1.n2
+Ccdl2cdf -o venus.so2 venus_1.so2
+#Ccdl2cdf -o venus.sulph venus_4_all.sulph
+Ccdl2cdf -o venus.soot venus_mode1.soot
+Ccdl2cdf -o venus.sulph venus_mode2.sulph
+Ccdl2cdf -o venus.ocn venus_modep.oceanic
+#Ccdl2cdf -o venus.wtsol $ABSORBER.mxr
+#Ccdl2cdf -o venus.wtsol fecl3_mxr
+#Ccdl2cdf -o venus.wtsol haus1_mxr
+#Ccl2cdf -o venus.wtsol haus2_mxr
+#Ccdl2cdf -o venus.dust venus_mode0.dust
+Ccdl2cdf -o venus.ash venus_mode3.ash
+Ccdl2cdf -o venus.hdo venus_2.hdo
+Ccdl2cdf -o venus.hcl venus_1.hcl
+Ccdl2cdf -o venus.hf venus_2.hf
+Ccdl2cdf -o venus.cosso venus_1.cosso
+Ccdl2cdf -o venus.tosso venus_1.tosso
+Ccdl2cdf -o venus.yosos venus_1.yosos
+#Ccdl2cdf -o venus.cosso cdl_venus.cosso
+#Ccdl2cdf -o venus.tosso cdl_venus.tosso
+#Ccdl2cdf -o mars.o3 mars_1.o3
+#Ccdl2cdf -o mars.n2o mars_1.n2o
+Ccdl2cdf -o venus.co venus_1.co
+Ccdl2cdf -o venus.ocs venus_1.ocs
+Ccdl2cdf -o venus.h2s venus_1.h2s
+#Ccdl2cdf -o mars.ch4 mars_1.ch4
+#Ccdl2cdf -o mars.o2 mars_1.o2
+#Ccdl2cdf -o mars.no mars_2.no
+#Ccdl2cdf -o mars.no2 mars_2.no2
+#Ccdl2cdf -o mars.o mars_1.o
+#Ccdl2cdf -o mars.n mars_1.n
+Ccdl2cdf -o venus.t venus_1.t
+Ccdl2cdf -o venus.tl venus_3.tl
+#Ccdl2cdf -o mars.tstar mars_2.tstar
+Ccdl2cdf -o venus.szen venus_1.szen
+Ccdl2cdf -o venus.stoa venus_1.stoa
+Ccdl2cdf -o venus.surf venus_1.surfsw
+rm -f venus_1*
+rm -f venus_2*
+rm -f venus_3*
+
+# Generate temperature on levels
+#python3 $RAD_DIR/python/ncout_tl.py mars
+
+exit 0

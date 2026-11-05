@@ -1,0 +1,44 @@
+#!/bin/bash
+
+echo "starting mk_h2s_lbl_sw_280_je_venus"
+if [ $RAD_BIN ] ; then
+  echo "Using code compiled in "$RAD_BIN
+else
+  echo "Path to code not set."
+  exit 1
+fi
+
+# Set environment variables
+procs=${VENUS_SW_PROCS:-12}
+. ./env_sw_280_venus
+
+HITRAN_H2S="$LINE_DATA_DIR/HITRAN2020_H2S.par"
+if [ ! -s $HITRAN_H2S ] ; then
+  echo "$HITRAN_H2S does not exist or is empty"
+fi
+
+mkdir -p ${SW_DATA}
+mkdir -p ${SP_DIR}
+echo "calling mk_sp_sw_280_je_venus_skel"
+./mk_sp_sw_280_je_venus_skel ${SKELFILE}
+
+echo "Generating H2S line absorption data"
+if [ ! -s $SW_DATA/h2s_lbl_280_${PT_FILE}.nc ] ; then
+  echo "$SW_DATA/h2s_lbl_280_${PT_FILE}.nc does not already exist"
+  rm -f $SW_DATA/h2s_lbl_280_l*
+  echo "removed $SW_DATA/h2s_lbl_280_l*"
+  echo "calling Ccorr_k"
+  Ccorr_k -F ${GAS_DATA_DIR}/${PT_FILE} -D $HITRAN_H2S \
+    -R 123 280 -c 5000.0 -i 0.2 \
+    -l 36 ${COL_MASS_K_H2S} -n 1 \
+    -s ${SKELFILE} +S $SOLSPEC -lk \
+    -o $SW_DATA/h2s_lbl_280_l -m $SW_DATA/h2s_lbl_280_lm \
+    -L $SW_DATA/h2s_lbl_280_${PT_FILE}.nc \
+    -np $procs \
+    > $SW_DATA/h2s_lbl_log
+  echo "Ccorr_k finished"
+else
+  echo "H2S absorption file already exists"
+fi
+echo "H2S finished!"
+exit 0

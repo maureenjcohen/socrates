@@ -1,0 +1,6 @@
+#!/bin/bash
+# Builds SOCRATES in the top of this tree. Run inside the container
+# (./podman_socrates ./build), where build_code picks make/Mk_cmd_lfric_dev.
+set -eu
+cd "$(dirname "$0")/../.."
+./build_code

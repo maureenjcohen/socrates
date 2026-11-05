@@ -1,0 +1,28 @@
+#!/bin/bash
+# Compares two text files number by number, in order of appearance, and prints
+# the count, the largest absolute difference, the largest magnitude in the
+# first file and their ratio. Fortran D exponents are read as E.
+# Usage: num_diff <reference file> <new file>
+awk '
+FNR == 1 { f++ }
+{
+  gsub(/[,;=(){}:]/, " ")
+  for (i = 1; i <= NF; i++) {
+    if ($i ~ /^[-+]?([0-9]+\.?[0-9]*|\.[0-9]+)([eEdD][-+]?[0-9]+)?$/) {
+      v = $i; sub(/[dD]/, "e", v)
+      x[f, ++n[f]] = v + 0
+    }
+  }
+}
+END {
+  if (n[1] != n[2]) { printf "count differs: %d vs %d\n", n[1], n[2]; exit 1 }
+  m = 0; s = 0
+  for (i = 1; i <= n[1]; i++) {
+    a = x[1, i]; e = a - x[2, i]
+    if (e < 0) e = -e
+    if (a < 0) a = -a
+    if (e > m) m = e
+    if (a > s) s = a
+  }
+  printf "values %d  max|diff| %.3e  max|ref| %.3e  ratio %.3e\n", n[1], m, s, (s > 0 ? m / s : 0)
+}' "$1" "$2"

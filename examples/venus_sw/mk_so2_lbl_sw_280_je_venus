@@ -1,0 +1,47 @@
+#!/bin/bash
+
+
+if [ $RAD_BIN ] ; then
+  echo "Using code compiled in "$RAD_BIN
+else
+  echo "Path to code not set."
+  exit 1
+fi
+
+# Set environment variables
+procs=${VENUS_SW_PROCS:-12}
+. ./env_sw_280_venus
+
+HITRAN_SO2="$LINE_DATA_DIR/HITRAN2020_SO2.par_co2"
+if [ ! -s $HITRAN_SO2 ] ; then
+    echo "$HITRAN_SO2 not found or is empty"
+fi
+
+HITRAN_UV_SO2="$GAS_DATA_DIR/SO2_UV08.xsc"
+if [ ! -s $HITRAN_UV_SO2 ] ; then
+    wget -nc https://lweb.cfa.harvard.edu/hitran/HITRAN2012/UV/Cross-sections/SO2_UV08.zip
+    unzip SO2_UV08.zip -d $GAS_DATA_DIR
+    rm -f SO2_UV08.zip
+fi
+
+mkdir -p ${SW_DATA}
+mkdir -p ${SP_DIR}
+./mk_sp_sw_280_je_venus_skel ${SKELFILE}
+
+echo "Generating SO2 line absorption data"
+for ((i = 211; i < 281; i++))
+do
+  if [ ! -s $SW_DATA/so2_lbl_s${i}_${PT_FILE}.nc ] ; then
+    rm -f $SW_DATA/so2_lbl${i}_l*
+    Ccorr_k -F ${GAS_DATA_DIR}/${PT_FILE} -BD $HITRAN_SO2 \
+      -R ${i} ${i} -c 5000.0 -i 0.2 \
+      -l 9 ${COL_MASS_K_SO2} -n 1 \
+      -s ${SKELFILE} +S $SOLSPEC -lk \
+      -o $SW_DATA/so2_lbl${i}_l -m $SW_DATA/so2_lbl${i}_lm \
+      -L $SW_DATA/so2_lbl_s${i}_${PT_FILE}.nc \
+      -np $procs \
+      > $SW_DATA/so2_lbl_log
+  fi 
+done
+
+exit 0

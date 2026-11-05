@@ -1,0 +1,554 @@
+#!/bin/bash
+
+echo -n 'Started mk_sp_sw_280_je_venus: '; date
+
+if [ $RAD_BIN ] ; then
+  echo "Using code compiled in "$RAD_BIN
+else
+  echo "Path to code not set."
+  exit 1
+fi
+
+# Set environment variables
+# -------------------------
+procs=${VENUS_SW_PROCS:-8}
+. ./env_sw_280_venus
+
+# Create skeleton spectral file
+# -----------------------------
+mkdir -p ${SP_DIR}
+./mk_sp_sw_280_je_venus_skel ${SKELFILE}
+
+
+# Gas absorption coefficients
+# ---------------------------
+echo -n 'H2O '
+if [ ! -s $SP_DIR/h2o_vis_l ] ; then
+  if [ ! -s $SW_DATA/h2o_lbl_vis_${PT_FILE}.nc ] ; then
+    echo ": No visible LBL file: please run ./mk_h2o_lbl_sw_280_je_venus"
+    exit 1
+  else
+    echo -n "visible "
+    rm -f $SP_DIR/h2o_vis_l*
+    Ccorr_k -F ${GAS_DATA_DIR}/${PT_FILE} \
+      -R 30 65 -l 1 ${COL_MASS_K_H2O} -b 5.0e-4 \
+      -s ${SKELFILE} +S $SOLSPEC -lk \
+      -o $SP_DIR/h2o_vis_l -m $SP_DIR/h2o_vis_lm \
+      -L $SW_DATA/h2o_lbl_vis_${PT_FILE}.nc \
+       > $SP_DIR/h2o_vis_log
+  fi
+else
+  #echo "Visible k file $SP_DIR/h2o_vis_l already exists"
+  :
+fi
+
+if [ ! -s $SP_DIR/h2o_swf_l ] ; then
+  if [ ! -s $SW_DATA/h2o_lbl_swf_${PT_FILE}.nc ] ; then
+    echo ": No near-IR LBL file: please run ./mk_h2o_lbl_sw_280_je_venus"
+    exit 1
+  else
+    echo -n "near-IR "
+    rm -f $SP_DIR/h2o_swf_l*
+    Ccorr_k -F ${GAS_DATA_DIR}/${PT_FILE} \
+      -R 66 280 -l 1 ${COL_MASS_K_H2O} -b 5.0e-4 \
+      -s ${SKELFILE} +S $SOLSPEC -lk \
+      -o $SP_DIR/h2o_swf_l -m $SP_DIR/h2o_swf_lm \
+      -L $SW_DATA/h2o_lbl_swf_${PT_FILE}.nc \
+      -sm $SP_DIR/h2o_swf_l_map.nc \
+       > $SP_DIR/h2o_swf_log
+  fi
+else
+  #echo "Near IR k file $SP_DIR/h2o_swf_l already exists"
+  :
+fi
+echo 'done'
+
+if [ ! -s $SP_DIR/h2o-h2o_sw_c ] ; then
+  echo "H2O self-broadened continuum"
+  rm -f $SP_DIR/h2o-h2o_sw_c*
+  Ccorr_k -F $CONT_PT_FILE \
+    -R 66 280 -i 1.0 -ct 1 1 ${COL_H2OC} -t 5.0e-4 \
+    -e $CONT_H2O_S296 $CONT_H2O_S260 \
+    -s ${SKELFILE} +S $SOLSPEC -lk \
+    -o $SP_DIR/h2o-h2o_sw_c -m $SP_DIR/h2o-h2o_sw_cm \
+    -L $SP_DIR/h2o-h2o_sw_clbl.nc \
+    -lw $SP_DIR/h2o_swf_l_map.nc \
+     > $SP_DIR/h2o-h2o_sw_clog
+else
+  #echo "Self-broadened k file $SP_DIR/h2o-h2o_sw_c already exists"
+  :
+fi
+echo "H2O done"
+
+echo -n 'CO2 '
+for ((i = 104; i < 281; i++))
+do
+  if [ ! -s $SP_DIR/co2_s${i}_l ] ; then
+    if [ ! -s $SW_DATA/co2_sblbl_s${i}_${PT_FILE}_gf0.9-1.0.nc ] ; then
+      echo ${i},": No LBL file: please run ./mk_co2_lbl_sw_280_je_venus"
+      exit 1
+    else
+      rm -f $SP_DIR/co2_s${i}_lm
+      Ccorr_k -F ${GAS_DATA_DIR}/${PT_FILE} \
+        -R ${i} ${i} -l 2 ${COL_MASS_K_CO2} -b 5.0e-4 \
+        -sb ${GAS_DATA_DIR}/gas_fractions_09_10 -lp 2 \
+        -s ${SKELFILE} +S $SOLSPEC -lk \
+        -o $SP_DIR/co2_s${i}_l -m $SP_DIR/co2_s${i}_lm \
+        -L $SW_DATA/co2_sblbl_s${i}_${PT_FILE}_gf0.9-1.0.nc \
+         > $SP_DIR/co2_s${i}_log
+      #echo -n '.'
+    fi
+  else
+    :
+    #echo "Near CO2 k file $SP_DIR/co2_s${i}_l already exists"
+  fi
+done
+rm -f $SP_DIR/co2_s_all_l
+cat $SP_DIR/co2_s???_l > $SP_DIR/co2_s_all_l && echo 'done'
+
+if [ ! -s $SP_DIR/co2-co2_sw_c ] ; then
+  echo "CO2-CO2 CIA"
+  rm -f $SP_DIR/co2-co2_sw_c*
+  Ccorr_k -F $CONT_PT_FILE -CIA $CONT_CO2_CO2 \
+    -R 104 280 -i 1.0 -ct 2 2 ${COL_CO2C} -t 5.0e-4 \
+    -k -s ${SKELFILE} +S $SOLSPEC -lk \
+    -o $SP_DIR/co2-co2_sw_c -m $SP_DIR/co2-co2_sw_cm \
+    -L $SP_DIR/co2-co2_sw_clbl.nc \
+    -np $procs > $SP_DIR/co2-co2_sw_clog
+else
+  :
+  #echo "CO2 continuum k file $SP_DIR/co2-co2_sw_c already exists"
+fi
+echo " done"
+
+echo -n 'SO2 '
+for ((i = 211; i < 281; i++))
+do
+  if [ ! -s $SP_DIR/so2_s${i}_l ] ; then
+    if [ ! -s $SW_DATA/so2_lbl_s${i}_${PT_FILE}.nc ] ; then
+      echo ${i},": No LBL file: please run ./mk_so2_lbl_sw_280_je_venus"
+      exit 1
+    else
+      rm -f $SP_DIR/so2_s${i}_l*
+      Ccorr_k -F ${GAS_DATA_DIR}/${PT_FILE} \
+        -R ${i} ${i} -l 9 ${COL_MASS_K_SO2} -b 5.0e-4 \
+        -s $SKELFILE +S $SOLSPEC -lk \
+        -o $SP_DIR/so2_s${i}_l -m $SP_DIR/so2_s${i}_lm \
+        -L $SW_DATA/so2_lbl_s${i}_${PT_FILE}.nc \
+         > $SP_DIR/so2_s${i}_log
+      echo -n '.'
+    fi
+  else
+    #echo "SO2 lbl k file $SP_DIR/so2_s${i}_l already exists"
+    :
+  fi
+done
+rm -f $SP_DIR/so2_s_all_l
+cat $SP_DIR/so2_s???_l > $SP_DIR/so2_s_all_l && echo 'done'
+
+if [ ! -s $SP_DIR/so2_u280_l ] ; then
+  echo 'SO2 (UV)'
+  rm -f $SP_DIR/so2_u280_l* $SP_DIR/so2_lbl_uv.nc
+  Ccorr_k -F $SO2_PT_FILE -X $HITRAN_UV_SO2 \
+    -R 1 50 -i 1.0 -l 9 ${COL_MASS_K_SO2} -t 5.0e-4  \
+    -s $SKELFILE +S $SOLSPEC -q -r $REF_PT_FILE \
+    -o $SP_DIR/so2_u280_l -m $SP_DIR/so2_u280_lm -L $SP_DIR/so2_lbl_uv.nc \
+    -np $procs > $SP_DIR/so2_u280_log
+else
+  #echo "SO2 UV k file $SP_DIR/so2_u280_l already exists"
+  :
+fi
+echo "SO2 done"
+
+echo -n "CO"
+if [ ! -s $SP_DIR/co_280_l ] ; then
+  if [ ! -s $SW_DATA/co_lbl_280_${PT_FILE}.nc ] ; then
+    echo ${i},": No LBL file: please run ./mk_co_lbl_sw_280_je_venus"
+    exit 1
+  else
+    rm -f $SP_DIR/co_280_l*
+    Ccorr_k -F ${GAS_DATA_DIR}/${PT_FILE} \
+      -R 104 280 -l 5 ${COL_MASS_K_CO} -b 5.0e-4 \
+      -s $SKELFILE +S $SOLSPEC -lk \
+      -o $SP_DIR/co_280_l -m $SP_DIR/co_280_lm \
+      -L $SW_DATA/co_lbl_280_${PT_FILE}.nc \
+       > $SP_DIR/co_280_log
+  fi
+else
+  #echo " lbl k file $SP_DIR/co_280_l already exists"
+  :
+fi
+echo " done"
+
+echo -n "OCS"
+if [ ! -s $SP_DIR/ocs_280_l ] ; then
+  if [ ! -s $SW_DATA/ocs_lbl_280_${PT_FILE}.nc ] ; then
+    echo ${i},": No LBL file: please run ./mk_ocs_lbl_sw_280_je_venus"
+    exit 1
+  else
+    rm -f $SP_DIR/ocs_280_l*
+    Ccorr_k -F ${GAS_DATA_DIR}/${PT_FILE} \
+      -R 104 248 -l 25 ${COL_MASS_K_OCS} -b 5.0e-4 \
+      -s $SKELFILE +S $SOLSPEC -lk \
+      -o $SP_DIR/ocs_280_l -m $SP_DIR/ocs_280_lm \
+      -L $SW_DATA/ocs_lbl_280_${PT_FILE}.nc \
+       > $SP_DIR/ocs_280_log
+  fi
+else
+  :
+  #echo " lbl k file $SP_DIR/ocs_280_l already exists"
+fi
+echo " done"
+
+echo -n "H2S"
+if [ ! -s $SP_DIR/h2s_280_l ] ; then
+  if [ ! -s $SW_DATA/h2s_lbl_280_${PT_FILE}.nc ] ; then
+    echo ${i},": No LBL file: please run ./mk_h2s_lbl_sw_280_je_venus"
+    exit 1
+  else
+    rm -f $SP_DIR/h2s_280_l*
+    Ccorr_k -F ${GAS_DATA_DIR}/${PT_FILE} \
+      -R 123 280 -l 36 ${COL_MASS_K_H2S} -b 5.0e-4 \
+      -s $SKELFILE +S $SOLSPEC -lk \
+      -o $SP_DIR/h2s_280_l -m $SP_DIR/h2s_280_lm \
+      -L $SW_DATA/h2s_lbl_280_${PT_FILE}.nc \
+       > $SP_DIR/h2s_280_log
+  fi
+else
+  :
+  #echo "H2S lbl k file $SP_DIR/h2s_280_l already exists"
+fi
+echo " done"
+
+echo -n 'HDO '
+if [ ! -s $SP_DIR/hdo_vis_l ] ; then
+  if [ ! -s $SW_DATA/hdo_lbl_vis_${PT_FILE}.nc ] ; then
+    echo ": No visible LBL file: please run ./mk_hdo_lbl_sw_280_je_venus"
+    exit 1
+  else
+    echo -n "visible "
+    rm -f $SP_DIR/hdo_vis_l*
+    Ccorr_k -F ${GAS_DATA_DIR}/${PT_FILE} \
+      -R 30 65 -l 50 ${COL_MASS_K_HDO} -b 5.0e-4 \
+      -s ${SKELFILE} +S $SOLSPEC -lk \
+      -o $SP_DIR/hdo_vis_l -m $SP_DIR/hdo_vis_lm \
+      -L $SW_DATA/hdo_lbl_vis_${PT_FILE}.nc \
+       > $SP_DIR/hdo_vis_log
+  fi
+else
+  :
+  #echo "Visible k file $SP_DIR/hdo_vis_l already exists"
+fi
+
+if [ ! -s $SP_DIR/hdo_swf_l ] ; then
+  if [ ! -s $SW_DATA/hdo_lbl_swf_${PT_FILE}.nc ] ; then
+    echo ": No near-IR LBL file: please run ./mk_hdo_lbl_sw_280_je_venus"
+    exit 1
+  else
+    echo -n "near-IR "
+    rm -f $SP_DIR/hdo_swf_l*
+    Ccorr_k -F ${GAS_DATA_DIR}/${PT_FILE} \
+      -R 66 280 -l 50 ${COL_MASS_K_HDO} -b 5.0e-4 \
+      -s ${SKELFILE} +S $SOLSPEC -lk \
+      -o $SP_DIR/hdo_swf_l -m $SP_DIR/hdo_swf_lm \
+      -L $SW_DATA/hdo_lbl_swf_${PT_FILE}.nc \
+      -sm $SP_DIR/hdo_swf_l_map.nc \
+       > $SP_DIR/hdo_swf_log
+  fi
+else
+  :
+  #echo "Near IR k file $SP_DIR/hdo_swf_l already exists"
+fi
+echo ' done'
+
+echo -n "HCl"
+if [ ! -s $SP_DIR/hcl_280_l ] ; then
+  if [ ! -s $SW_DATA/hcl_lbl_280_${PT_FILE}.nc ] ; then
+    echo ${i},": No LBL file: please run ./mk_hcl_lbl_sw_280_je_venus"
+    exit 1
+  else
+    rm -f $SP_DIR/hcl_280_l*
+    Ccorr_k -F ${GAS_DATA_DIR}/${PT_FILE} \
+      -R 104 280 -l 51 ${COL_MASS_K_HCl} -b 5.0e-4 \
+      -s $SKELFILE +S $SOLSPEC -lk \
+      -o $SP_DIR/hcl_280_l -m $SP_DIR/hcl_280_lm \
+      -L $SW_DATA/hcl_lbl_280_${PT_FILE}.nc \
+       > $SP_DIR/hcl_280_log
+  fi
+else
+  :
+  #echo " lbl k file $SP_DIR/hcl_280_l already exists"
+fi
+echo " done"
+
+echo -n "HF"
+if [ ! -s $SP_DIR/hf_280_l ] ; then
+  if [ ! -s $SW_DATA/hf_lbl_280_${PT_FILE}.nc ] ; then
+    echo ${i},": No LBL file: please run ./mk_hf_lbl_sw_280_je_venus"
+    exit 1
+  else
+    rm -f $SP_DIR/hf_280_l*
+    Ccorr_k -F ${GAS_DATA_DIR}/${PT_FILE} \
+      -R 104 280 -l 52 ${COL_MASS_K_HF} -b 5.0e-4 \
+      -s $SKELFILE +S $SOLSPEC -lk \
+      -o $SP_DIR/hf_280_l -m $SP_DIR/hf_280_lm \
+      -L $SW_DATA/hf_lbl_280_${PT_FILE}.nc \
+       > $SP_DIR/hf_280_log
+  fi
+else
+  :
+  #echo " lbl k file $SP_DIR/hf_280_l already exists"
+fi
+echo " done"
+
+echo -n 'cis-OSSO'
+if [ ! -s $SP_DIR/cosso_u280_l ] ; then
+  rm -f $SP_DIR/cosso_u280_l* $SP_DIR/cosso_lbl_uv.nc
+  Ccorr_k -F $PT_UNSCALED -UVX cis-OSSO.uvxsc \
+    -R 1 150 -i 0.2 -l 53 ${COL_MASS_K_cOSSO} -t 5.0e-4  \
+    -s $SKELFILE +S $SOLSPEC \
+    -o $SP_DIR/cosso_u280_l -m $SP_DIR/cosso_u280_lm -L $SP_DIR/cosso_lbl_uv.nc \
+    -np $procs > $SP_DIR/cosso_u280_log
+else
+  :
+  #echo " UV k file $SP_DIR/cosso_u280_l already exists"
+fi
+echo " done"
+
+echo -n 'trans-OSSO'
+if [ ! -s $SP_DIR/tosso_u280_l ] ; then
+  rm -f $SP_DIR/tosso_u280_l* $SP_DIR/tosso_lbl_uv.nc
+  Ccorr_k -F $PT_UNSCALED -UVX trans-OSSO.uvxsc \
+    -R 1 150 -i 0.2 -l 54 ${COL_MASS_K_tOSSO} -t 5.0e-4  \
+    -s $SKELFILE +S $SOLSPEC \
+    -o $SP_DIR/tosso_u280_l -m $SP_DIR/tosso_u280_lm -L $SP_DIR/tosso_lbl_uv.nc \
+    -np $procs > $SP_DIR/tosso_u280_log
+else
+  :
+  #echo " UV k file $SP_DIR/tosso_u280_l already exists"
+fi
+echo " done"
+
+echo -n 'OSO-S'
+if [ ! -s $SP_DIR/yosos_u280_l ] ; then
+  rm -f $SP_DIR/yosos_u280_l* $SP_DIR/yosos_lbl_uv.nc
+  Ccorr_k -F $PT_UNSCALED -UVX OSO-S.uvxsc \
+    -R 1 107 -i 0.2 -l 55 ${COL_MASS_K_yOSOS} -t 5.0e-4  \
+    -s $SKELFILE +S $SOLSPEC \
+    -o $SP_DIR/yosos_u280_l -m $SP_DIR/yososs_u280_lm -L $SP_DIR/yosos_lbl_uv.nc \
+    -np $procs > $SP_DIR/yosos_u280_log
+else
+  :
+  #echo " UV k file $SP_DIR/yosos_u280_l already exists"
+fi
+echo " done"
+
+# Sulphuric acid aerosol
+# ----------------------
+#if [ ! -s $SP_DIR/sulphuric_sw.avg ] ; then
+#  echo 'Sulphuric acid aerosol (SW)'
+#  Cscatter_average -s $SKELFILE -P 1 -w -S $SOLSPEC \
+#    -a sulphuric_sw.avg sulphuric.mon
+#fi
+
+# Sulphuric acid mode "0" (dust) aerosol
+# ----------------------
+#if [ ! -s $SP_DIR/sulphuric_sw.avg ] ; then
+#  echo 'Mode "0" ("dust") aerosol (SW)'
+#  Cscatter_average -s $SKELFILE -P 1 -w -S $SOLSPEC \
+#    -a dust_sw.avg dustlike.mon
+#fi
+
+# Unknown absorber (soluble) aerosol
+# ----------------------
+if [ ! -s $SP_DIR/soluble_sw.avg ] ; then
+  echo "$ABSORBER absorber ('soluble') aerosol (SW)"
+  Cscatter_average -s $SKELFILE -P 1 -w -S $SOLSPEC \
+    -a soluble_sw.avg soluble.mon
+fi
+
+# Sulphuric acid mode 1 (soot) aerosol
+# ----------------------
+if [ ! -s $SP_DIR/soot_sw.avg ] ; then
+  echo 'Mode 1 ("soot") aerosol (SW)'
+  Cscatter_average -s $SKELFILE -P 1 -w -S $SOLSPEC \
+    -a soot_sw.avg soot.mon
+fi
+
+# Sulphuric acid mode 2 (sulph) aerosol
+# ----------------------
+if [ ! -s $SP_DIR/sulphuric_sw.avg ] ; then
+  echo 'Mode 2 ("sulph") aerosol (SW)'
+  Cscatter_average -s $SKELFILE -P 1 -w -S $SOLSPEC \
+    -a sulphuric_sw.avg sulphuric.mon
+fi
+
+# Sulphuric acid mode 2' (oceanic) aerosol
+# ----------------------
+if [ ! -s $SP_DIR/oceanic_sw.avg ] ; then
+  echo "Mode 2' ('oceanic') aerosol (SW)"
+  Cscatter_average -s $SKELFILE -P 1 -w -S $SOLSPEC \
+    -a oceanic_sw.avg oceanic.mon
+fi
+
+# Sulphuric acid mode 3 (ash) aerosol
+# ----------------------
+if [ ! -s $SP_DIR/sulphuric_sw.avg ] ; then
+  echo 'Mode 3 ("ash") aerosol (SW)'
+  Cscatter_average -s $SKELFILE -P 1 -w -S $SOLSPEC \
+    -a ash_sw.avg ash.mon
+fi
+
+
+
+# Cloud droplet and ice parametrisations
+# --------------------------------------
+#if [ ! -s $SP_DIR/fit_sw_drop5 ] ; then
+#  echo 'Calculating type 5 droplet data'
+#  rm -f $SP_DIR/fit_sw_drop5 $SP_DIR/mon_sw_drop5
+#  Cscatter_average -s $SKELFILE -P 1 -t -S $SOLSPEC \
+#    -f 5 $SP_DIR/fit_sw_drop5 $SP_DIR/mon_sw_drop5 1.e3 \
+#    $RAD_DATA/cloud/scatter_drop_type5
+#fi
+#if [ ! -s $SP_DIR/fit_sw_ice8 ] ; then
+#  echo 'Calculating type 8 ice data'
+#  rm -f $SP_DIR/fit_sw_ice8 $SP_DIR/mon_sw_ice8
+#  Cscatter_average -s $SKELFILE -P 1 -t -S $SOLSPEC \
+#    -f 12 $SP_DIR/fit_sw_ice8 $SP_DIR/mon_sw_ice8 920 \
+#    $RAD_DATA/cloud/scatter_ice_sw_type8
+#fi
+
+
+# Create the spectral file from the data calculated above
+# -------------------------------------------------------
+echo 'Constructing spectral file'
+#mv ${SPECFILE} ${SPECFILE}_old 2> /dev/null
+#mv ${SPECFILE}_k ${SPECFILE}_old_k 2> /dev/null
+prep_spec << EOF > ${SPECFILE}_log 2>&1
+$SKELFILE
+n
+$SPECFILE
+2
+n
+$SOLSPEC
+n
+3
+c
+2
+2
+13
+5
+$SP_DIR/h2o_vis_l
+5
+y
+$SP_DIR/h2o_swf_l
+5
+y
+$SP_DIR/co2_s_all_l
+5
+y
+$SP_DIR/so2_s_all_l
+5
+y
+$SP_DIR/so2_u280_l
+5
+y
+$SP_DIR/co_280_l
+5
+y
+$SP_DIR/ocs_280_l
+5
+y
+$SP_DIR/h2s_280_l
+5
+y
+$SP_DIR/hdo_vis_l
+5
+y
+$SP_DIR/hdo_swf_l
+5
+y
+$SP_DIR/hcl_280_l
+5
+y
+$SP_DIR/hf_280_l
+5
+y
+$SP_DIR/cosso_u280_l
+5
+y
+$SP_DIR/tosso_u280_l
+5
+y
+$SP_DIR/yosos_u280_l
+19
+$SP_DIR/h2o-h2o_sw_c
+19
+y
+$SP_DIR/co2-co2_sw_c
+11
+soluble_sw.avg
+11
+y
+oceanic_sw.avg
+11
+y
+soot_sw.avg
+11
+y
+ash_sw.avg
+11
+y
+sulphuric_sw.avg
+-1
+EOF
+
+# Rearrange so the major gas is listed first for each band and
+# gases are removed from bands where absorption is very weak.
+#echo 'Tidying spectral file'
+#tidy_90 << EOF > ${SPECFILE}_tidy_log
+#$SPECFILE
+#o
+#8
+#1
+#0
+#1
+#$COL_MASS_K_H2O
+#$COL_MASS_K_CO2
+#$COL_MASS_K_SO2
+#0.0
+#$COL_MASS_K_CO
+#$COL_MASS_K_OCS
+#$COL_MASS_K_H2S
+#$COL_MASS_K_HDO
+#$COL_MASS_K_HCl
+#$COL_MASS_K_HF
+#$COL_MASS_K_cOSSO
+#$COL_MASS_K_tOSSO
+#$COL_MASS_K_yOSOS
+#${COL_H2OC}
+#${COL_CO2C}
+#0.999990
+#6
+#$COL_MASS_K_H2O
+#$COL_MASS_K_CO2
+#$COL_MASS_K_SO2
+#$COL_MASS_K_CO
+#0.0
+#$COL_MASS_K_OCS
+#$COL_MASS_K_H2S
+#$COL_MASS_K_HDO
+#$COL_MASS_K_HCl
+#$COL_MASS_K_HF
+#$COL_MASS_K_cOSSO
+#$COL_MASS_K_tOSSO
+#$COL_MASS_K_yOSOS
+#${COL_H2OC}
+#${COL_CO2C}
+#1.0e+6
+#n
+#-1
+#EOF
+
+echo -n 'Finished mk_sp_sw_280_je_venus: '; date
+exit 0
