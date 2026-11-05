@@ -1,0 +1,36 @@
+#!/bin/bash
+# Single-scattering properties of the Venus cloud modes, by Mie theory over
+# log-normal size distributions. Modes 1, 2' and 3 are 75% sulphuric acid.
+# Mode 2 is sulphuric acid with 1.5% FeCl3 (refract_FeCl3_day18_1p5), which
+# carries the UV absorption. The "soluble" slot takes the precomputed
+# fecl3.mon. Earth aerosol names are slots only; the .mon files set what
+# each holds:
+#   soot      mode 1    r_g 0.30 um, sigma_g 1.56
+#   sulphuric mode 2    r_g 1.00 um, sigma_g 1.29
+#   oceanic   mode 2'   r_g 1.40 um, sigma_g 1.23
+#   ash       mode 3    r_g 3.65 um, sigma_g 1.28
+
+set -e
+rm -f soot.mon sulphuric.mon oceanic.mon ash.mon soluble.mon
+
+cp fecl3.mon soluble.mon
+
+Cscatter -w $RAD_DATA/aerosol/wl_aerosol \
+         -r $RAD_DATA/aerosol/refract_sulphuric \
+         -l -C 4 -g 1.0 3.00e-7 1.56 \
+         -n 3.98e8 -o soot.mon -t 1 -M
+
+Cscatter -w $RAD_DATA/aerosol/wl_fecl3 \
+         -r $RAD_DATA/aerosol/refract_FeCl3_day18_1p5 \
+         -l -C 6 -g 1.e0 1.0e-6 1.29 \
+         -n 7.49e7 -o sulphuric.mon -t 1 -M
+
+Cscatter -w $RAD_DATA/aerosol/wl_aerosol \
+         -r $RAD_DATA/aerosol/refract_sulphuric \
+         -l -C 3 -g 1.0 1.4e-6 1.23 \
+         -n 6.14e7 -o oceanic.mon -t 1 -M
+
+Cscatter -w $RAD_DATA/aerosol/wl_aerosol \
+         -r $RAD_DATA/aerosol/refract_sulphuric \
+         -l -C 5 -g 1.0 3.65E-6 1.28 \
+         -n 1.34e7 -o ash.mon -t 1 -M

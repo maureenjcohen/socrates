@@ -29,6 +29,9 @@ mk_sp_sw_280_je_venus_skel   skeleton: bands, gases, continua, aerosols
 mk_<gas>_lbl_sw_280_je_venus line-by-line absorption for one gas (slow)
 mk_sp_sw_280_je_venus        k-terms from the line-by-line files, then the
                              spectral file
+run_scatter                  Mie optics of the cloud modes -> .mon files;
+                             mode 2 carries 1.5% FeCl3
+fecl3.mon                    precomputed optics for the "soluble" slot
 cis-OSSO.uvxsc, trans-OSSO.uvxsc, OSO-S.uvxsc, pt_single
                              UV cross-sections for the OSSO isomers
 
