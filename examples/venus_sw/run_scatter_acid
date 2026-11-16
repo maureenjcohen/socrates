@@ -1,0 +1,31 @@
+#!/bin/bash
+# Single-scattering properties of the Venus cloud modes with every mode made
+# of sulphuric acid of one concentration, by Mie theory over the same
+# log-normal size distributions as run_scatter. The concentration enters only
+# through the refractive index file. The "soluble" slot takes the precomputed
+# fecl3.mon, as in run_scatter.
+# Usage, inside the container: ./run_scatter_acid <refractive index file>
+# It overwrites the .mon files of run_scatter; rerun ./run_scatter before
+# assembling the standard spectral file.
+
+set -eu
+refract=$1
+rm -f soot.mon sulphuric.mon oceanic.mon ash.mon soluble.mon
+
+cp fecl3.mon soluble.mon
+
+Cscatter -w $RAD_DATA/aerosol/wl_aerosol -r $refract \
+         -l -C 4 -g 1.0 3.00e-7 1.56 \
+         -n 3.98e8 -o soot.mon -t 1 -M
+
+Cscatter -w $RAD_DATA/aerosol/wl_aerosol -r $refract \
+         -l -C 6 -g 1.e0 1.0e-6 1.29 \
+         -n 7.49e7 -o sulphuric.mon -t 1 -M
+
+Cscatter -w $RAD_DATA/aerosol/wl_aerosol -r $refract \
+         -l -C 3 -g 1.0 1.4e-6 1.23 \
+         -n 6.14e7 -o oceanic.mon -t 1 -M
+
+Cscatter -w $RAD_DATA/aerosol/wl_aerosol -r $refract \
+         -l -C 5 -g 1.0 3.65E-6 1.28 \
+         -n 1.34e7 -o ash.mon -t 1 -M

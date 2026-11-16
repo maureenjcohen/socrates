@@ -1,0 +1,37 @@
+#!/bin/bash
+# Measures what the sulphuric acid concentration of the cloud droplets does
+# to shortwave fluxes and heating rates. For each of 75, 84.5 and 95.6% acid
+# it computes the Mie optics of the four cloud modes (run_scatter_acid),
+# assembles the spectral file sp_sw_280_je_venus_acid<tag> from the existing
+# k files, and runs the column of check_je_file with it. Only the aerosol
+# blocks differ between the three files; the aerosol mass mixing ratios of
+# the column are the same in all three runs.
+# Usage, inside the container: ./podman_socrates ./acid_test <je_ref_dir>
+# Output: VENUS_SW_WORK/acid_test/<tag>/ holds the column output as CDL text
+# (new.<ext>), the .mon files and the assembly log. Compare with
+#   ./column_summary $VENUS_SW_WORK/acid_test/{75,84p5,95p6}
+# The standard .mon files of run_scatter are restored at the end.
+
+set -eu
+cd "$(dirname "$0")"
+ref=$1
+. ./env_sw_280_venus
+out=$VENUS_SW_WORK/acid_test
+
+for tag in 75 84p5 95p6; do
+  case $tag in
+    75) refract=refract_sulphuric_75_pw ;;
+    *)  refract=refract_sulphuric_$tag ;;
+  esac
+  echo "== $tag: $refract"
+  ./run_scatter_acid $refract > /dev/null
+  rm -rf "$out/$tag"; mkdir -p "$out/$tag"
+  VENUS_SW_VARIANT=acid$tag ./mk_sp_sw_280_je_venus > "$out/$tag/mk_sp.log" 2>&1
+  ./check_je_file "$ref" "$SP_DIR/sp_sw_280_je_venus_acid$tag" > /dev/null
+  cp "$VENUS_SW_WORK"/check_je_file/new.* "$out/$tag"/
+  cp soot.mon sulphuric.mon oceanic.mon ash.mon "$out/$tag"/
+  echo "   column output files: $(ls "$out/$tag"/new.* | wc -l) (7 when complete)"
+done
+
+./run_scatter > /dev/null
+echo "done: $out"

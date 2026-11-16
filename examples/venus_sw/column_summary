@@ -1,0 +1,100 @@
+#!/usr/bin/env python3
+"""Summarises one-column shortwave runs, summed over bands, side by side.
+
+Each argument is a directory holding the CDL text output of a column run:
+new.vflx (total downward flux), new.uflx (upward), new.nflx (net downward)
+and new.hrts (heating rate), each of shape (band, level), level 1 at the top.
+check_je_file and acid_test write such directories.
+
+Printed, with the first directory as the reference for the differences:
+  - incoming and reflected flux at the top, absorbed flux (net at the top)
+    and net flux at the surface;
+  - absorbed flux by spectral region;
+  - heating rate at every layer.
+
+Usage: column_summary <dir> [<dir> ...]
+Runs on the host; needs only the Python 3 standard library.
+"""
+import os
+import re
+import sys
+
+REGIONS = [(0.175, 0.32), (0.32, 0.50), (0.50, 0.70), (0.70, 1.20),
+           (1.20, 2.40), (2.40, 3.30), (3.30, 20.0)]
+
+
+def read_cdl(path):
+    """The variables of the data section of a CDL file, as lists of floats."""
+    text = open(path).read()
+    data = text[text.index('data:') + 5:]
+    out = {}
+    for name, body in re.findall(r'(\w+)\s*=\s*([^;]*);', data):
+        out[name] = [float(x) for x in body.replace(',', ' ').split()]
+    return out
+
+
+def by_band(values, n_band):
+    n_lev = len(values) // n_band
+    return [values[i * n_lev:(i + 1) * n_lev] for i in range(n_band)]
+
+
+def load(directory):
+    run = {}
+    for ext in ('vflx', 'uflx', 'nflx', 'hrts'):
+        cdl = read_cdl(os.path.join(directory, 'new.' + ext))
+        n_band = len(cdl['channel'])
+        run[ext] = by_band(cdl[ext], n_band)
+        run[ext + '_p'] = cdl['plev']
+        run['wl_short'] = cdl['wl_short']
+        run['wl_long'] = cdl['wl_long']
+    return run
+
+
+def band_sum(field, level, bands=None):
+    bands = range(len(field)) if bands is None else bands
+    return sum(field[b][level] for b in bands)
+
+
+def row(label, values, fmt):
+    cells = [fmt % values[0]]
+    for v in values[1:]:
+        cells.append(fmt % v + ' (%+.4f)' % (v - values[0]))
+    print('%-28s' % label + '  '.join(cells))
+
+
+def main(dirs):
+    runs = [load(d) for d in dirs]
+    for i, d in enumerate(dirs):
+        print('%d: %s' % (i + 1, d))
+    print('Differences in brackets are from run 1.\n')
+
+    print('Fluxes summed over bands (W m-2)')
+    row('incoming at the top', [band_sum(r['vflx'], 0) for r in runs], '%10.4f')
+    row('reflected at the top', [band_sum(r['uflx'], 0) for r in runs], '%10.4f')
+    row('absorbed (net at the top)', [band_sum(r['nflx'], 0) for r in runs], '%10.4f')
+    row('net at the surface', [band_sum(r['nflx'], -1) for r in runs], '%10.4f')
+
+    print('\nAbsorbed flux by spectral region (W m-2)')
+    for lo, hi in REGIONS:
+        vals = []
+        for r in runs:
+            centre = [0.5e6 * (a + b) for a, b in zip(r['wl_short'], r['wl_long'])]
+            bands = [b for b, c in enumerate(centre) if lo <= c < hi]
+            vals.append(band_sum(r['nflx'], 0, bands))
+        row('%6.3f-%6.3f um' % (lo, hi), vals, '%10.4f')
+
+    print('\nHeating rate summed over bands (K/day); per cent change from run 1')
+    p = runs[0]['hrts_p']
+    for k in range(len(p)):
+        h = [band_sum(r['hrts'], k) for r in runs]
+        cells = ['%12.5g' % h[0]]
+        for v in h[1:]:
+            pct = 100.0 * (v - h[0]) / h[0] if h[0] != 0.0 else float('nan')
+            cells.append('%12.5g (%+7.3f%%)' % (v, pct))
+        print('%11.4e Pa  ' % p[k] + '  '.join(cells))
+
+
+if __name__ == '__main__':
+    if len(sys.argv) < 2:
+        sys.exit(__doc__)
+    main(sys.argv[1:])

@@ -24,6 +24,8 @@ check_je_file     runs a spectral file (the JE file by default) through
 num_diff          number-by-number comparison of two text files
 compare_sp        block-by-block comparison of two spectral files:
                   ./compare_sp <reference file> <new file>
+column_summary    band-summed fluxes and heating rates of column runs,
+                  side by side: ./column_summary <dir> [<dir> ...]
 
 Spectral file
 -------------
@@ -38,6 +40,16 @@ mk_sp_je_gaps                the same, as sp_sw_280_je_venus_gaps: no CO2 in
 run_scatter                  Mie optics of the cloud modes -> .mon files;
                              mode 2 carries 1.5% FeCl3
 fecl3.mon                    precomputed optics for the "soluble" slot
+run_scatter_acid             the same Mie optics with every mode made of
+                             acid of one refractive index file
+refract_sulphuric_75_pw, refract_sulphuric_84p5, refract_sulphuric_95p6
+                             refractive index of 75, 84.5 and 95.6%
+                             sulphuric acid at 300 K (Palmer & Williams
+                             1975, Appl. Opt. 14, 208), on the wavelengths
+                             of data/aerosol/refract_sulphuric
+acid_test                    column runs with the cloud at each of the
+                             three concentrations:
+                             ./podman_socrates ./acid_test <je_ref_dir>
 cis-OSSO.uvxsc, trans-OSSO.uvxsc, OSO-S.uvxsc, pt_single
                              UV cross-sections for the OSSO isomers
 
