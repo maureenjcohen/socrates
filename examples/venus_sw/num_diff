@@ -1,7 +1,8 @@
 #!/bin/bash
 # Compares two text files number by number, in order of appearance, and prints
-# the count, the largest absolute difference, the largest magnitude in the
-# first file and their ratio. Fortran D exponents are read as E.
+# the count, the largest absolute difference, and the largest relative
+# difference |a - b| / max(|a|, |b|) with the pair of values it occurs at.
+# Fortran D exponents are read as E.
 # Usage: num_diff <reference file> <new file>
 awk '
 FNR == 1 { f++ }
@@ -16,13 +17,16 @@ FNR == 1 { f++ }
 }
 END {
   if (n[1] != n[2]) { printf "count differs: %d vs %d\n", n[1], n[2]; exit 1 }
-  m = 0; s = 0
+  m = 0; r = 0; ra = 0; rb = 0
   for (i = 1; i <= n[1]; i++) {
-    a = x[1, i]; e = a - x[2, i]
+    a = x[1, i]; b = x[2, i]; e = a - b
     if (e < 0) e = -e
-    if (a < 0) a = -a
     if (e > m) m = e
-    if (a > s) s = a
+    s = (a < 0 ? -a : a); t = (b < 0 ? -b : b)
+    if (t > s) s = t
+    if (s > 0 && e / s > r) { r = e / s; ra = a; rb = b }
   }
-  printf "values %d  max|diff| %.3e  max|ref| %.3e  ratio %.3e\n", n[1], m, s, (s > 0 ? m / s : 0)
+  printf "values %d  max|diff| %.3e  max rel %.3e", n[1], m, r
+  if (r > 0) printf "  (ref %.6e, new %.6e)", ra, rb
+  printf "\n"
 }' "$1" "$2"

@@ -18,9 +18,12 @@ Container and build
 podman_socrates   runs a command (or a shell) in the lfric_dev container
 build             builds SOCRATES: ./podman_socrates ./build
 check_corr_k      checks corr_k and prep_spec against examples/corr_k
-check_je_file     runs an existing JE file through l_run_cdf and compares
-                  with JE's stored output: ./check_je_file <je_ref_dir>
+check_je_file     runs a spectral file (the JE file by default) through
+                  l_run_cdf and compares with JE's stored output:
+                  ./check_je_file <je_ref_dir> [spectral file]
 num_diff          number-by-number comparison of two text files
+compare_sp        block-by-block comparison of two spectral files:
+                  ./compare_sp <reference file> <new file>
 
 Spectral file
 -------------
