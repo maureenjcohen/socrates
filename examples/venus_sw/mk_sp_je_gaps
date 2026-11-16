@@ -1,0 +1,10 @@
+#!/bin/bash
+# Assembles the variant sp_sw_280_je_venus_gaps of the spectral file: the same
+# file with CO2 left out of the 13 bands in which the JE file has none (the
+# centres of the 2.7, 4.3 and 15 micron CO2 bands). It is for comparing with
+# the JE file band for band, and is not a file to run a model with. Every
+# k file already made is reused.
+# Usage, inside the container: ./podman_socrates ./mk_sp_je_gaps
+export VENUS_SW_VARIANT=gaps
+export CO2_OMIT_BANDS="221 222 223 243 244 267 268 269 270 271 272 273 274"
+exec ./mk_sp_sw_280_je_venus

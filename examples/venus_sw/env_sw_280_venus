@@ -7,7 +7,9 @@ SW_DATA="${VENUS_SW_WORK}/lbl"
 SP_DIR="${VENUS_SW_WORK}/sp"
 
 SKELFILE="$SP_DIR/sp_sw_280_je_venus_skel"
-SPECFILE="$SP_DIR/sp_sw_280_je_venus"
+# VENUS_SW_VARIANT, when set, is appended to the name of the spectral file,
+# so that variants assembled from the same k files sit side by side.
+SPECFILE="$SP_DIR/sp_sw_280_je_venus${VENUS_SW_VARIANT:+_${VENUS_SW_VARIANT}}"
 
 SOLFILE="sun"
 SOLSPEC="${RAD_DATA}/solar/${SOLFILE}"

@@ -103,8 +103,14 @@ do
     #echo "Near CO2 k file $SP_DIR/co2_s${i}_l already exists"
   fi
 done
+# Bands listed in CO2_OMIT_BANDS (numbers separated by spaces) are left out
+# of the spectral file's CO2.
 rm -f $SP_DIR/co2_s_all_l
-cat $SP_DIR/co2_s???_l > $SP_DIR/co2_s_all_l && echo 'done'
+for ((i = 104; i < 281; i++))
+do
+  case " ${CO2_OMIT_BANDS:-} " in *" $i "*) continue ;; esac
+  cat $SP_DIR/co2_s${i}_l
+done > $SP_DIR/co2_s_all_l && echo 'done'
 
 if [ ! -s $SP_DIR/co2-co2_sw_c ] ; then
   echo "CO2-CO2 CIA"
@@ -359,6 +365,9 @@ echo " done"
 #    -a dust_sw.avg dustlike.mon
 #fi
 
+# The band averages are written in this directory and remade on every run.
+rm -f soluble_sw.avg soot_sw.avg sulphuric_sw.avg oceanic_sw.avg ash_sw.avg
+
 # Unknown absorber (soluble) aerosol
 # ----------------------
 if [ ! -s $SP_DIR/soluble_sw.avg ] ; then
@@ -424,6 +433,9 @@ fi
 echo 'Constructing spectral file'
 #mv ${SPECFILE} ${SPECFILE}_old 2> /dev/null
 #mv ${SPECFILE}_k ${SPECFILE}_old_k 2> /dev/null
+# prep_spec asks before overwriting a file, which the scripted answers
+# below do not allow for.
+rm -f ${SPECFILE} ${SPECFILE}_k
 prep_spec << EOF > ${SPECFILE}_log 2>&1
 $SKELFILE
 n
