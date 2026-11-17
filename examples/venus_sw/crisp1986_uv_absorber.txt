@@ -1,0 +1,40 @@
+# Absorption efficiency of the unknown Venus UV absorber.
+#
+# Source: Crisp, D. (1986), "Radiative forcing of the Venus mesosphere.
+#   I. Solar fluxes and heating rates", Icarus 67, 484-514, Table IV,
+#   column "UV absorber, Q_abs".
+#
+# Q_abs is the absorption efficiency: absorption cross-section divided by
+# the geometric cross-section of the particle. Crisp models the absorber
+# as 75% H2SO4 mode 1 particles with this absorption added; the extinction
+# efficiency and asymmetry parameter in his table are those of mode 1.
+#
+# Q_abs is 0.000 in every interval of the table below 0.31 um
+# (0.19-0.31 um) and in 0.78-1.38 um. From 1.38 um the table's values equal
+# those of pure mode 1 H2SO4, i.e. the absorber adds nothing there.
+#
+# The 21 rows below are checked against the printed table; the zero
+# intervals stated above are read from the scanned text only.
+#
+# Columns: lower wavelength (um), upper wavelength (um), Q_abs
+0.31  0.32  0.333
+0.32  0.33  0.356
+0.33  0.34  0.300
+0.34  0.35  0.247
+0.35  0.36  0.223
+0.36  0.37  0.202
+0.37  0.38  0.184
+0.38  0.39  0.155
+0.39  0.40  0.111
+0.40  0.42  0.080
+0.42  0.44  0.053
+0.44  0.46  0.034
+0.46  0.48  0.031
+0.48  0.50  0.028
+0.50  0.52  0.028
+0.52  0.54  0.023
+0.54  0.56  0.018
+0.56  0.58  0.014
+0.58  0.60  0.008
+0.60  0.62  0.004
+0.62  0.78  0.003

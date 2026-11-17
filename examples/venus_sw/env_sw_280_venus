@@ -7,6 +7,8 @@ SW_DATA="${VENUS_SW_WORK}/lbl"
 SP_DIR="${VENUS_SW_WORK}/sp"
 
 SKELFILE="$SP_DIR/sp_sw_280_je_venus_skel"
+# Skeleton of our own file: SO added, OSSO isomers left out.
+SKELFILE_VENUS="$SP_DIR/sp_sw_280_venus_skel"
 # VENUS_SW_VARIANT, when set, is appended to the name of the spectral file,
 # so that variants assembled from the same k files sit side by side.
 SPECFILE="$SP_DIR/sp_sw_280_je_venus${VENUS_SW_VARIANT:+_${VENUS_SW_VARIANT}}"
@@ -26,6 +28,7 @@ COL_MASS_K_H2S="1.163e+01"
 COL_MASS_K_cOSSO="1.397e+01"
 COL_MASS_K_tOSSO="1.105e+01"
 COL_MASS_K_yOSOS="1.737e-00"
+COL_MASS_K_SO="1.0e-04"
 
 SAFE_COL_MASS_K_cOSSO="2.006e-04"
 SAFE_COL_MASS_K_tOSSO="1.056e-04"
@@ -39,13 +42,19 @@ CONT_H2O_S260="${RAD_DATA}/continua/elsey_shine_s260"
 CONT_H2O_S296="${RAD_DATA}/continua/elsey_shine_s296"
 CONT_CO2_CO2="${RAD_DATA}/continua/CO2-CO2_2018.cia"
 HITRAN_UV_SO2="$GAS_DATA_DIR/SO2_UV08.xsc"
+# UV cross-sections written by mk_so_uvxsc (too large for git) and
+# mk_co2_uvxsc.
+SO_UVXSC="${VENUS_SW_WORK}/uv/so.uvxsc"
+CO2_UVXSC="co2_uv.uvxsc"
 
 PT_FILE="ptVenus"
 SO2_PT_FILE="$RAD_DATA/gases/pt_so2_uv"
 PT_UNSCALED="pt_single"
+SO_PT_FILE="pt_so_uv"
+CO2_UV_PT_FILE="pt_co2_uv"
 REF_PT_FILE="$RAD_DATA/gases/ref_pt_280_venus"
 CONT_PT_FILE="$RAD_DATA/continua/pt_cont_100_400"
 
-ABSORBER="fecl3"
+ABSORBER="Crisp (1986) UV"
 DROPLET_CONC="0%"
 ABS_MODES=("mode1" "mode2" "modep" "mode3")

@@ -38,8 +38,12 @@ mk_sp_je_gaps                the same, as sp_sw_280_je_venus_gaps: no CO2 in
                              the 13 bands where the JE file has none; for
                              comparison with the JE file only
 run_scatter                  Mie optics of the cloud modes -> .mon files;
-                             mode 2 carries 1.5% FeCl3
-fecl3.mon                    precomputed optics for the "soluble" slot
+                             modes 1 and 2 75% acid, modes 2' and 3 95.6%
+mk_uv_absorber               UV absorber of Crisp (1986): absorption only,
+                             in the "soluble" slot -> uv_absorber.mon, and
+                             its column profile crisp_uv_absorber.wtsol
+crisp1986_uv_absorber.txt    Crisp (1986) Table IV, absorption efficiency
+                             of the UV absorber in 21 intervals
 run_scatter_acid             the same Mie optics with every mode made of
                              acid of one refractive index file
 refract_sulphuric_75_pw, refract_sulphuric_84p5, refract_sulphuric_95p6
@@ -52,11 +56,34 @@ acid_test                    column runs with the cloud at each of the
                              ./podman_socrates ./acid_test <je_ref_dir>
 cis-OSSO.uvxsc, trans-OSSO.uvxsc, OSO-S.uvxsc, pt_single
                              UV cross-sections for the OSSO isomers
+mk_sp_sw_280_venus_skel      skeleton of our own file: as the JE skeleton
+                             with SO (gas 111) added and the OSSO isomers
+                             left out
+mk_so_uvxsc                  SO UV cross-sections (Heays et al. 2023), 12
+                             temperatures -> so.uvxsc (250 MB, not in git;
+                             kept at $VENUS_SW_WORK/uv/so.uvxsc). Needs
+                             numpy and h5py:
+                             ./mk_so_uvxsc <Heays data dir> [output file]
+mk_co2_uvxsc                 CO2 UV cross-sections (Venot et al. 2018), 10
+                             temperatures, gaps filled with the paper's
+                             continuum formula -> co2_uv.uvxsc:
+                             ./mk_co2_uvxsc <Venot data dir>
+pt_so_uv, pt_co2_uv          the record temperatures, for the look-up fits
+mk_uv_sw_280_venus           k-terms of SO (bands 3-15) and CO2 UV (bands
+                             1-11): ./podman_socrates ./mk_uv_sw_280_venus
+                             [first SO band] [last SO band]
 
 Column runs
 -----------
-mk_venus_atm            venus_atm_obs_so2.raw and the venus_mode* cloud
-                        profiles -> venus.<suffix> netCDF inputs
+mk_venus_atm            venus_atm_obs_so2.raw, the haus_mode* cloud
+                        profiles and crisp_uv_absorber.wtsol ->
+                        venus.<suffix> netCDF inputs
+mk_haus_cloud           cloud profiles of the Haus et al. (2016) standard
+                        model, all four modes -> haus_mode1.soot,
+                        haus_mode2.sulph, haus_modep.oceanic,
+                        haus_mode3.ash; with a spectral file as argument
+                        prints each mode's optical depth at 1 micron:
+                        ./mk_haus_cloud [spectral file]
 planet.nml              Venus constants for Cl_run_cdf -N
 Run: Cl_run_cdf -N planet.nml -B venus -s sp_sw_280_je_venus -R 1 280 -S
      -r -g 4 -u -C 5 -ch 280 -a

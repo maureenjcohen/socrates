@@ -1,0 +1,130 @@
+#!/usr/bin/env python3
+"""Writes co2_uv.uvxsc, the temperature-dependent UV cross-sections of CO2
+for Ccorr_k -UVX, from the data of Venot et al. (2018, A&A 609, A34).
+
+One record per temperature (150-800 K, ten), each on the same evenly
+spaced wavenumber grid from 172 to 230 nm. corr_k takes the nearest
+temperature that has a record at a wavenumber, so every record must cover
+the whole range.
+
+Each temperature's data end at a different wavelength (178-230 nm).
+Beyond that end the record holds the paper's continuum formula (its
+Eqs. 3-9, three Gaussians in wavenumber, valid for 115-230 nm and 150-800
+K), scaled to equal the mean of the data over their last 3 nm. Unscaled,
+the formula differs from the data there by up to a factor of two and
+would leave a step.
+
+Input: a directory holding the ten files CO2_Venot(2018)_<T>K_<range>nm.txt
+(columns: wavelength in nm, cross-section in cm2 molecule-1).
+
+Usage: mk_co2_uvxsc <Venot data directory>
+Runs on the host; needs only the Python 3 standard library.
+"""
+import glob
+import math
+import os
+import re
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+OUT_FILE = os.path.join(HERE, 'co2_uv.uvxsc')
+
+WL_MIN, WL_MAX = 172.0, 230.0   # nm, record range
+DNU = 1.0                        # cm-1, record spacing
+JOIN = 3.0                       # nm over which the formula joins the data
+# Values below this are written as zero; the format has two-digit exponents.
+SIGMA_MIN = 1.0e-99
+
+
+def continuum(nu, t):
+    """Venot et al. (2018) Eqs. 3-9: cross-section (cm2) at wavenumber nu
+    (cm-1) and temperature t (K)."""
+    s1 = 877.36 + 10947.81 * math.exp(-1382.63 / t)
+    s2 = t * (2.78 + 49.52 * math.exp(-0.00654 * t))
+    s3 = t * (8.17 + 46.12 * math.exp(-0.00813 * t))
+    a1 = 50.0e-19
+    a2 = (3.58 + 9.18 * math.exp(-580.92 / t)) * 1.0e-19
+    a3 = (4.09 + 0.0022 * t) * 1.0e-19
+    return sum(a * math.exp(-(nu - c) ** 2 / (2.0 * s ** 2))
+               for a, c, s in ((a1, 88574.0, s1), (a2, 76000.0, s2),
+                               (a3, 68000.0, s3)))
+
+
+def read_venot(path):
+    wl, sg = [], []
+    with open(path) as f:
+        for line in f:
+            s = line.split()
+            if len(s) >= 2:
+                wl.append(float(s[0]))
+                sg.append(float(s[1]))
+    return wl, sg
+
+
+def interp(x, xs, ys):
+    """Linear interpolation in ascending xs."""
+    lo, hi = 0, len(xs) - 1
+    while hi - lo > 1:
+        mid = (lo + hi) // 2
+        if xs[mid] <= x:
+            lo = mid
+        else:
+            hi = mid
+    f = (x - xs[lo]) / (xs[hi] - xs[lo])
+    return ys[lo] + f * (ys[hi] - ys[lo])
+
+
+def record(path, t, nus):
+    wl, sg = read_venot(path)
+    wl_end = wl[-1]
+    tail = [(w, s) for w, s in zip(wl, sg) if w >= wl_end - JOIN]
+    data_mean = sum(s for _, s in tail) / len(tail)
+    form_mean = sum(continuum(1.0e7 / w, t) for w, _ in tail) / len(tail)
+    scale = data_mean / form_mean
+    out = []
+    for nu in nus:
+        w = 1.0e7 / nu
+        if w <= wl_end:
+            out.append(interp(w, wl, sg))
+        else:
+            out.append(scale * continuum(nu, t))
+    return out, wl_end, scale
+
+
+def header(t, nu_min, nu_max, n, smax):
+    return ('%-20s%16.4f%16.4f%7d%7.2f%6.1f%16.9E %-5s%-15s    %-3s%3d'
+            % ('CO2', nu_min, nu_max, n, t, 0.0, smax, '', 'Venot2018', '', 0))
+
+
+def main():
+    if len(sys.argv) != 2:
+        sys.exit(__doc__)
+    files = glob.glob(os.path.join(sys.argv[1], 'CO2_Venot(2018)_*K_*nm.txt'))
+    temps = sorted((float(re.search(r'_(\d+)K_', os.path.basename(f))
+                          .group(1)), f) for f in files)
+    if len(temps) != 10:
+        sys.exit('Expected ten Venot files, found %d' % len(temps))
+    nu_min = math.ceil(1.0e7 / WL_MAX)
+    nu_max = math.floor(1.0e7 / WL_MIN)
+    n = int(round((nu_max - nu_min) / DNU)) + 1
+    nus = [nu_min + i * DNU for i in range(n)]
+    lines = []
+    for t, path in temps:
+        sig, wl_end, scale = record(path, t, nus)
+        if min(sig) < 0.0:
+            sys.exit('Negative cross-section at %g K' % t)
+        sig = [s if s >= SIGMA_MIN else 0.0 for s in sig]
+        lines.append(header(t, nu_min, nu_max, n, max(sig)))
+        for i in range(0, n, 10):
+            lines.append(''.join('%16.9E' % s for s in sig[i:i + 10]))
+        print('%5.0f K: data to %.1f nm, formula scaled by %.3f beyond; '
+              'sigma(200 nm) %.2e, sigma(230 nm) %.2e cm2'
+              % (t, wl_end, scale, sig[nus.index(50000.0)], sig[0]))
+    with open(OUT_FILE, 'w') as f:
+        f.write('\n'.join(lines) + '\n')
+    print('wrote %s: %d records of %d points, %.0f-%.0f cm-1'
+          % (os.path.basename(OUT_FILE), len(temps), n, nu_min, nu_max))
+
+
+if __name__ == '__main__':
+    main()

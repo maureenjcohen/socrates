@@ -1,0 +1,229 @@
+#!/usr/bin/env python3
+"""Writes cloud mass mixing ratio profiles for the column model from the
+standard cloud model of Haus et al. (2016, Icarus 272, 178), Table 1.
+
+Each mode has a constant number density N0 from z_b to z_b + z_c, with
+exponential tails of scale height H_up above and H_lo below. In addition:
+  - modes 1 and 2 decay with a 2 km scale height above 80 km;
+  - mode 1 decays with a 5 km scale height below 45 km (the lower haze);
+  - mode 2 takes the 0-45 deg latitude values of z_b and H_up.
+
+Height of each layer comes from hydrostatic balance on the temperatures of
+venus_atm_obs_so2.raw, so it is consistent with the column the model runs.
+Each layer takes the mean number density over its thickness, which keeps
+the column amount of the sharp-edged modes.
+
+The mass mixing ratio uses a droplet density of 1000 kg m-3, not the real
+acid density, because the aerosol types holding the cloud modes convert
+their optics to mass-specific values with that conventional density. The
+profiles therefore do not depend on the acid concentration.
+
+Output, in this directory, in the CDL layout of the venus_mode* files:
+  haus_mode1.soot, haus_mode2.sulph, haus_modep.oceanic, haus_mode3.ash
+
+With a spectral file as argument, also prints each mode's column optical
+depth at 1 micron (mean of the two bands meeting at 1 micron), for
+comparison with Haus Table 1: 3.88, 7.62, 9.35, 14.14; total 35.0.
+
+Usage: mk_haus_cloud [spectral file]
+Runs on the host; needs only the Python 3 standard library.
+"""
+import math
+import os
+import re
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ATM_FILE = os.path.join(HERE, 'venus_atm_obs_so2.raw')
+# Existing profile file supplying the pressure grid and header layout.
+TEMPLATE = os.path.join(HERE, 'venus_mode2.sulph')
+
+GRAV = 8.87          # m s-2, as planet.nml
+R_GAS = 191.354      # J kg-1 K-1, as planet.nml
+RHO_CONV = 1000.0    # kg m-3, conventional density of the aerosol types
+# Mixing ratios below this are written as zero: the CDL variables are
+# single precision and the format allows two-digit exponents only.
+Q_MIN = 1.0e-30
+
+# name, file, CDL variable, CDL title, spectral-file species name,
+# z_b, z_c, H_up, H_lo (km), N0 (cm-3), r_g (m), sigma_g
+MODES = [
+    ('1',  'haus_mode1.soot',    'soot',  'Soot',            'Soot',
+     49.0, 16.0, 3.5, 1.0, 193.5, 0.30e-6, 1.56),
+    ('2',  'haus_mode2.sulph',   'sulph', 'Sulphuric Acid',  'Sulphuric Acid',
+     65.0,  1.0, 3.5, 3.0, 100.0, 1.00e-6, 1.29),
+    ("2'", 'haus_modep.oceanic', 'ocn',   'Oceanic Aerosol', 'Oceanic',
+     49.0, 11.0, 1.0, 0.1,  50.0, 1.40e-6, 1.23),
+    ('3',  'haus_mode3.ash',     'ash',   'Ash',             'Volcanic Ash',
+     49.0,  8.0, 1.0, 0.5,  14.0, 3.65e-6, 1.28),
+]
+
+
+def read_atm(path):
+    """Layer p, T (first block) and level p, T (TLEV block), top first."""
+    blocks, cur = [], None
+    with open(path) as f:
+        for line in f:
+            s = line.split()
+            if not s:
+                continue
+            if s[0] == '*PROFILE':
+                cur = {'head': None, 'rows': []}
+                blocks.append(cur)
+            elif s[0] == '*END':
+                cur = None
+            elif cur is not None and cur['head'] is None:
+                cur['head'] = s
+            elif cur is not None:
+                cur['rows'].append([float(x) for x in s[:2]])
+    lay = blocks[0]['rows']
+    lev = next(b for b in blocks if b['head'][1].startswith('TLEV'))['rows']
+    return ([r[0] for r in lay], [r[1] for r in lay],
+            [r[0] for r in lev], [r[1] for r in lev])
+
+
+def heights(p_lay, t_lay, p_lev):
+    """Heights (km) of each layer's pressure and of the levels, integrating
+    up from the bottom level with each layer's temperature."""
+    n = len(p_lay)
+    z_lev = [0.0] * (n + 1)
+    z_lay = [0.0] * n
+    for i in range(n - 1, -1, -1):
+        h = R_GAS * t_lay[i] / GRAV
+        z_lay[i] = z_lev[i + 1] + h * math.log(p_lev[i + 1] / p_lay[i])
+        z_lev[i] = z_lev[i + 1] + h * math.log(p_lev[i + 1] / p_lev[i])
+    return [z / 1000.0 for z in z_lay], [z / 1000.0 for z in z_lev]
+
+
+def number_density(z, name, zb, zc, hup, hlo, n0):
+    """Haus Table 1 profile (cm-3) at height z (km)."""
+    ztop = zb + zc
+    if z > ztop:
+        if name in ('1', '2') and z > 80.0:
+            return n0 * math.exp(-(80.0 - ztop) / hup) \
+                * math.exp(-(z - 80.0) / 2.0)
+        return n0 * math.exp(-(z - ztop) / hup)
+    if z >= zb:
+        return n0
+    if name == '1' and z < 45.0:
+        return n0 * math.exp(-(zb - 45.0) / hlo) \
+            * math.exp(-(45.0 - z) / 5.0)
+    return n0 * math.exp(-(zb - z) / hlo)
+
+
+def layer_mean(z_hi, z_lo, mode, nsub=200):
+    """Mean of the Haus profile (cm-3) over a layer. The modes have edges
+    sharper than a layer is thick, so the profile at the layer centre
+    would misstate the column."""
+    name, zb, zc, hup, hlo, n0 = mode[0], *mode[5:10]
+    dz = (z_hi - z_lo) / nsub
+    return sum(number_density(z_lo + (k + 0.5) * dz, name, zb, zc, hup,
+                              hlo, n0) for k in range(nsub)) / nsub
+
+
+def mean_volume(rg, sg):
+    """Mean droplet volume (m3) of a log-normal distribution."""
+    return 4.0 / 3.0 * math.pi * rg ** 3 * math.exp(4.5 * math.log(sg) ** 2)
+
+
+def fmt(x):
+    """Fortran-style 0.dddddddE+ee, as in the existing CDL files."""
+    if x == 0.0:
+        return '0.000000E+00'
+    e = math.floor(math.log10(abs(x))) + 1
+    m = x / 10.0 ** e
+    if round(abs(m), 6) >= 1.0:
+        m /= 10.0
+        e += 1
+    return '%.6fE%+03d' % (m, e)
+
+
+def write_cdl(path, template, var, title, values):
+    """Copies the template header and pressure grid; replaces the
+    variable's name, title and data."""
+    with open(template) as f:
+        text = f.read()
+    head, _, _ = text.partition('            sulph =')
+    head = head.replace('venus.sulph', 'venus.' + var)
+    head = head.replace('float sulph(', 'float %s(' % var)
+    head = head.replace('sulph:units', var + ':units')
+    head = head.replace('sulph:title = "Sulphuric Acid"',
+                        '%s:title = "%s"' % (var, title))
+    lines = []
+    for i in range(0, len(values), 4):
+        chunk = ', '.join(fmt(v) for v in values[i:i + 4])
+        end = ';' if i + 4 >= len(values) else ','
+        lead = '            %s =  ' % var if i == 0 \
+            else ' ' * (16 + len(var))
+        lines.append(lead + chunk + end)
+    with open(path, 'w') as f:
+        f.write(head + '\n'.join(lines) + '\n\n}\n')
+
+
+def template_plev(template):
+    with open(template) as f:
+        text = f.read()
+    block = text.split('data:', 1)[1].split('plev =', 1)[1].split(';')[0]
+    return [float(x) for x in block.replace(',', ' ').split()]
+
+
+def ext_at_1um(spfile, species):
+    """Mass extinction (m2 kg-1) of an aerosol species, mean of the two
+    bands meeting at 1 micron."""
+    with open(spfile) as f:
+        lines = f.read().splitlines()
+    bands = []
+    i = lines.index('Band        Lower limit         Upper limit') + 1
+    while lines[i].split() and lines[i].split()[0].isdigit():
+        b, lo, hi = lines[i].split()
+        if abs(float(hi) - 1.0e-6) < 1e-12 or abs(float(lo) - 1.0e-6) < 1e-12:
+            bands.append(int(b))
+        i += 1
+    pat = re.compile(r'Index of species =\s+\d+\s+' + re.escape(species))
+    j = next(k for k, l in enumerate(lines) if pat.match(l))
+    ext = []
+    for l in lines[j + 4:]:
+        s = l.split()
+        if not s or not s[0].isdigit():
+            break
+        if int(s[0]) in bands:
+            ext.append(float(s[1]) + float(s[2]))
+    return sum(ext) / len(ext)
+
+
+def main():
+    p_lay, t_lay, p_lev, _ = read_atm(ATM_FILE)
+    plev = template_plev(TEMPLATE)
+    if len(plev) != len(p_lay) or len(p_lev) != len(p_lay) + 1:
+        sys.exit('Level counts do not match: template %d, atm layers %d, '
+                 'atm levels %d' % (len(plev), len(p_lay), len(p_lev)))
+    z, z_lev = heights(p_lay, t_lay, p_lev)
+    rho_air = [p / (R_GAS * t) for p, t in zip(p_lay, t_lay)]
+    dmass = [(p_lev[i + 1] - p_lev[i]) / GRAV for i in range(len(p_lay))]
+
+    spfile = sys.argv[1] if len(sys.argv) > 1 else None
+    print('Layer heights: %.1f km at %.3g Pa (top), %.2f km at %.3g Pa'
+          % (z[0], p_lay[0], z[-1], p_lay[-1]))
+    tot = 0.0
+    for mode in MODES:
+        name, fname, var, title, species = mode[:5]
+        vol = mean_volume(*mode[10:12])
+        q = [layer_mean(z_lev[i], z_lev[i + 1], mode) * 1.0e6
+             * vol * RHO_CONV / rho_air[i] for i in range(len(z))]
+        q = [qk if qk >= Q_MIN else 0.0 for qk in q]
+        write_cdl(os.path.join(HERE, fname), TEMPLATE, var, title, q)
+        kmax = max(range(len(q)), key=lambda k: q[k])
+        line = ('mode %-2s -> %-19s max q %.3e at %.1f km'
+                % (name, fname, q[kmax], z[kmax]))
+        if spfile:
+            tau = ext_at_1um(spfile, species) * sum(
+                qk * dm for qk, dm in zip(q, dmass))
+            tot += tau
+            line += ', tau(1 um) %.2f' % tau
+        print(line)
+    if spfile:
+        print('total tau(1 um) %.2f' % tot)
+
+
+if __name__ == '__main__':
+    main()

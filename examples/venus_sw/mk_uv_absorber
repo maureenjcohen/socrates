@@ -1,0 +1,168 @@
+#!/usr/bin/env python3
+"""Writes the optics and the column profile of the unknown UV absorber,
+following the nominal "high-UV absorber" model of Crisp (1986, Icarus 67,
+484).
+
+Crisp puts the absorber in the mode 1 particles between 0.37 and 0.028 bar
+(56.5 km to the cloud top), as absorption efficiency Q_abs added to their
+optics (his Table IV). The absorbing optical depth of a layer is then his
+mode 1 visible optical depth there (Table II) times Q_abs / Q_ext,vis. Only
+that absorption is represented here: the cloud modes supply the scattering.
+
+uv_absorber.mon
+    Single-scattering file for the "soluble" aerosol slot: absorption
+    proportional to Q_abs, no scattering. Q_abs is constant within each of
+    Crisp's intervals and zero outside 0.31-0.78 um. Its mass absorption
+    coefficient is K_REF * Q_abs / Q_EXT_VIS, given the conventional
+    density of 1000 kg m-3 that converts the file to mass-specific values.
+crisp_uv_absorber.wtsol
+    Mixing ratio profile for the column, so that each Crisp layer holds its
+    absorbing optical depth, spread within the layer by its scale height.
+
+Prints the absorbing column optical depth at the 0.32-0.33 um peak.
+
+Usage: mk_uv_absorber
+Runs on the host; needs only the Python 3 standard library.
+"""
+import importlib.machinery
+import importlib.util
+import math
+import os
+import sys
+
+sys.dont_write_bytecode = True
+HERE = os.path.dirname(os.path.abspath(__file__))
+_loader = importlib.machinery.SourceFileLoader(
+    'mk_haus_cloud', os.path.join(HERE, 'mk_haus_cloud'))
+_spec = importlib.util.spec_from_loader('mk_haus_cloud', _loader)
+hc = importlib.util.module_from_spec(_spec)
+_loader.exec_module(hc)
+
+QABS_FILE = os.path.join(HERE, 'crisp1986_uv_absorber.txt')
+MON_FILE = os.path.join(HERE, 'uv_absorber.mon')
+PROFILE_FILE = os.path.join(HERE, 'crisp_uv_absorber.wtsol')
+
+# Crisp Table IV, mode 1 extinction efficiency at 0.54-0.56 um: the
+# reference for his visible optical depths.
+Q_EXT_VIS = 3.119
+# Mass absorption coefficient (m2 kg-1) per unit Q_abs / Q_EXT_VIS. Any
+# value works; this one gives mixing ratios of the size of the cloud modes'.
+K_REF = 1000.0
+# Volume fraction stated in the .mon header; the absorption column is
+# scaled to it.
+VOL_FRAC = 1.0e-6
+
+# Crisp Table II, equatorial model, mode 1 in the absorbing layer:
+# top and bottom pressure (Pa), visible optical depth, scale height (km).
+CRISP_LAYERS = [
+    (2.8e3, 1.0e4, 1.81, 2.05),
+    (1.0e4, 1.6e4, 3.50, 3.20),
+    (1.6e4, 2.5e4, 2.60, 9.00),
+    (2.5e4, 3.7e4, 1.70, -1.00),
+]
+
+# Relative half-width of the step at each interval edge of Q_abs.
+EDGE = 1.0e-5
+
+
+def read_qabs(path):
+    rows = []
+    with open(path) as f:
+        for line in f:
+            s = line.split()
+            if s and not line.startswith('#'):
+                rows.append((float(s[0]) * 1e-6, float(s[1]) * 1e-6,
+                             float(s[2])))
+    return rows
+
+
+def mon_points(rows):
+    """(wavelength (m), Q_abs) pairs tracing Crisp's step function. The
+    band averaging interpolates linearly between points, so each edge gets
+    a point just either side of it."""
+    pts = [(1.0e-7, 0.0)]
+    prev = 0.0
+    for lo, hi, q in rows:
+        pts.append((lo * (1 - EDGE), prev))
+        pts.append((lo * (1 + EDGE), q))
+        prev = q
+    pts.append((rows[-1][1] * (1 - EDGE), prev))
+    pts.append((rows[-1][1] * (1 + EDGE), 0.0))
+    pts.append((1.0e-4, 0.0))
+    return pts
+
+
+def write_mon(path, pts):
+    out = ['', '*FILE TYPE =     6', '',
+           '                Single scattering parameters.', '', '',
+           'Scattering algorithm =     1   (%-40s)' % 'Full Mie scattering calculation',
+           'Scattering type      =     1   (%-20s)' % 'Aerosol',
+           'Component            =     1   (%-20s)' % 'Water soluble',
+           '',
+           'Number density   = %12.5E m-3' % 1.0,
+           'Effective radius = %12.5E m' % 1.0e-6,
+           'Volume fraction  = %12.5E' % VOL_FRAC,
+           '',
+           '    Wavelength (m)      Absorption (m-1)    Scattering (m-1)'
+           '     Moments of pf']
+    for wl, q in pts:
+        absorption = K_REF * q / Q_EXT_VIS * VOL_FRAC * hc.RHO_CONV
+        out.append('    %16.9E    %16.9E    %16.9E    %16.9E'
+                   % (wl, absorption, 0.0, 0.0))
+    out.append(' ')
+    with open(path, 'w') as f:
+        f.write('\n'.join(out) + '\n')
+
+
+def z_at(p, p_lev, z_lev):
+    """Height (km) at pressure p, log-linear between levels."""
+    for i in range(len(p_lev) - 1):
+        if p_lev[i] <= p <= p_lev[i + 1]:
+            f = math.log(p / p_lev[i]) / math.log(p_lev[i + 1] / p_lev[i])
+            return z_lev[i] + f * (z_lev[i + 1] - z_lev[i])
+    sys.exit('Pressure %g Pa is outside the column' % p)
+
+
+def exp_integral(z1, z2, h):
+    """Integral of exp(-z/h) dz from z1 to z2."""
+    return h * (math.exp(-z1 / h) - math.exp(-z2 / h))
+
+
+def main():
+    rows = read_qabs(QABS_FILE)
+    write_mon(MON_FILE, mon_points(rows))
+
+    p_lay, t_lay, p_lev, _ = hc.read_atm(hc.ATM_FILE)
+    _, z_lev = hc.heights(p_lay, t_lay, p_lev)
+    n = len(p_lay)
+    dtau = [0.0] * n
+    for p_top, p_bot, tau, h in CRISP_LAYERS:
+        zt, zb = z_at(p_top, p_lev, z_lev), z_at(p_bot, p_lev, z_lev)
+        total = exp_integral(zb, zt, h)
+        for i in range(n):
+            lo, hi = max(z_lev[i + 1], zb), min(z_lev[i], zt)
+            if hi > lo:
+                dtau[i] += tau * exp_integral(lo, hi, h) / total
+    dmass = [(p_lev[i + 1] - p_lev[i]) / hc.GRAV for i in range(n)]
+    q = [d / (K_REF * m) for d, m in zip(dtau, dmass)]
+    q = [qk if qk >= hc.Q_MIN else 0.0 for qk in q]
+    hc.write_cdl(PROFILE_FILE, hc.TEMPLATE, 'wtsol',
+                 'Water Soluble Aerosol', q)
+
+    qpeak = max(r[2] for r in rows)
+    tau_vis = sum(qk * m * K_REF for qk, m in zip(q, dmass))
+    print('mode 1 visible optical depth in the layer %.2f (Crisp %.2f)'
+          % (tau_vis, sum(l[2] for l in CRISP_LAYERS)))
+    print('absorbing optical depth at the Q_abs peak (%.3f): %.3f'
+          % (qpeak, tau_vis * qpeak / Q_EXT_VIS))
+    kmax = max(range(n), key=lambda k: q[k])
+    zc = hc.heights(p_lay, t_lay, p_lev)[0]
+    print('max q %.3e at %.1f km; nonzero from %.1f to %.1f km'
+          % (q[kmax], zc[kmax], min(zc[i] for i in range(n) if q[i] > 0),
+             max(zc[i] for i in range(n) if q[i] > 0)))
+    print('wrote %s, %s' % (os.path.basename(MON_FILE),
+                            os.path.basename(PROFILE_FILE)))
+
+
+if __name__ == '__main__':
+    main()

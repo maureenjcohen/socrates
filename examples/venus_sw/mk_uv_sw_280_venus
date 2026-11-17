@@ -1,0 +1,70 @@
+#!/bin/bash
+# k-terms for the UV cross-sections of SO (gas 111) and CO2 (gas 2), from
+# the .uvxsc files of mk_so_uvxsc and mk_co2_uvxsc.
+#
+# Both are fitted as temperature look-up tables: the p-T files hold one
+# pressure and the temperatures of the records, so the k-terms are those of
+# the data at each record temperature. The data carry no pressure
+# dependence.
+#   SO:  bands 3-15 (188.7-250 nm), one Ccorr_k call per band, so that one
+#        band can be tried alone and a stopped run resumes where it ended;
+#        0.01 cm-1 integration, the resolution of the data.
+#   CO2: bands 1-11 (175-230 nm), one call; 1 cm-1 integration, the
+#        spacing of the records.
+# Output in SP_DIR: so_u280_l (bands concatenated) and co2_u280_l, with
+# their monitoring files and logs.
+#
+# Usage, inside the container: ./mk_uv_sw_280_venus [first SO band] [last SO band]
+# With band arguments only those SO bands are fitted, and CO2 is skipped.
+# Needs SOCRATES built with gas 111 (SO) in gas_list_pcf.F90.
+
+set -eu
+cd "$(dirname "$0")"
+procs=${VENUS_SW_PROCS:-8}
+. ./env_sw_280_venus
+
+if [ ! -s "$SO_UVXSC" ] ; then
+  echo "$SO_UVXSC not found: write it with mk_so_uvxsc"
+  exit 1
+fi
+mkdir -p "$SP_DIR"
+./mk_sp_sw_280_venus_skel "$SKELFILE_VENUS" > /dev/null
+
+first=${1:-3}
+last=${2:-15}
+
+for ((i = first; i <= last; i++)) ; do
+  b=$(printf '%03d' $i)
+  if [ -s "$SP_DIR/so_u${b}_l" ] ; then
+    echo "SO band $i: done before"
+    continue
+  fi
+  echo -n "SO band $i: "; date
+  rm -f "$SP_DIR/so_u${b}_l"* "$SP_DIR/so_lbl_uv_${b}.nc"
+  Ccorr_k -F "$SO_PT_FILE" -UVX "$SO_UVXSC" \
+    -R $i $i -i 1.0 -l 111 ${COL_MASS_K_SO} -t 5.0e-4 \
+    -s "$SKELFILE_VENUS" +S "$SOLSPEC" -lk \
+    -o "$SP_DIR/so_u${b}_l" -m "$SP_DIR/so_u${b}_lm" \
+    -L "$SP_DIR/so_lbl_uv_${b}.nc" \
+    -np $procs > "$SP_DIR/so_u${b}_log"
+done
+
+if [ $# -gt 0 ] ; then
+  exit 0
+fi
+
+cat "$SP_DIR"/so_u???_l > "$SP_DIR/so_u280_l"
+echo "SO: $SP_DIR/so_u280_l"
+
+if [ ! -s "$SP_DIR/co2_u280_l" ] ; then
+  echo -n "CO2 UV: "; date
+  rm -f "$SP_DIR/co2_u280_l"* "$SP_DIR/co2_lbl_uv.nc"
+  Ccorr_k -F "$CO2_UV_PT_FILE" -UVX "$CO2_UVXSC" \
+    -R 1 11 -i 100.0 -l 2 ${COL_MASS_K_CO2} -t 5.0e-4 \
+    -s "$SKELFILE_VENUS" +S "$SOLSPEC" -lk \
+    -o "$SP_DIR/co2_u280_l" -m "$SP_DIR/co2_u280_lm" \
+    -L "$SP_DIR/co2_lbl_uv.nc" \
+    -np $procs > "$SP_DIR/co2_u280_log"
+fi
+echo "CO2 UV: $SP_DIR/co2_u280_l"
+echo -n 'Finished: '; date
