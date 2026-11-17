@@ -6,12 +6,13 @@
 # in the file.
 #
 # Usage, inside the container:
-#   ./podman_socrates ./run_column_venus <tag> [spectral file]
+#   ./podman_socrates ./run_column_venus <tag> [spectral file] [zenith angle]
 # The spectral file defaults to SPECFILE_VENUS; its _k file must sit beside
 # it, under VENUS_SW_WORK. Gases and aerosols that the file does not hold
-# are ignored.
-# Output: VENUS_SW_WORK/column/<tag>/ holds the inputs, the l_run_cdf log
-# and the output as CDL text (new.<ext>). Compare runs with
+# are ignored. The solar zenith angle is in degrees, 51 by default.
+# Output: VENUS_SW_WORK/column/<tag>/ holds the inputs, the l_run_cdf log,
+# the output as CDL text (new.<ext>), and the temperatures and zenith angle
+# of the run as CDL text (new.t, new.tl, new.szen). Compare runs with
 #   ./column_summary $VENUS_SW_WORK/column/<tag1> $VENUS_SW_WORK/column/<tag2>
 
 set -eu
@@ -20,6 +21,7 @@ cd "$here"
 . ./env_sw_280_venus
 tag=$1
 sp=${2:-$SPECFILE_VENUS}
+export VENUS_SZEN=${3:-51}
 if [ ! -s "$sp" ] || [ ! -s "${sp}_k" ] ; then
   echo "Spectral file $sp or its _k file not found"
   exit 1
@@ -35,7 +37,7 @@ ln -s "$sp" sp
 ln -s "${sp}_k" sp_k
 Cl_run_cdf -N planet.nml -B venus -s sp -R 1 280 -S \
   -r -g 4 -u -C 5 -ch 280 -a > l_run_cdf.log 2>&1
-for ext in uflx dflx sflx vflx nflx hrts aflx; do
+for ext in uflx dflx sflx vflx nflx hrts aflx t tl szen; do
   if [ ! -s "venus.$ext" ]; then echo "$ext: not written"; continue; fi
   Ccdf2cdl -o "new.$ext" "venus.$ext" > /dev/null
 done

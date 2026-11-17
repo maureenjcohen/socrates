@@ -19,9 +19,10 @@ venus
 n
 EOF
 
+# Solar zenith angle in degrees: VENUS_SZEN, 51 when unset.
 Cgen_horiz_cdl -o venus_1.szen -n szen \
                  -L "Solar zenith angle" -u "Degrees" \
-                 -F 51 -N 0.0 -T 0.0
+                 -F ${VENUS_SZEN:-51} -N 0.0 -T 0.0
 Cgen_horiz_cdl -o venus_1.stoa -n stoa \
                  -L "Solar Irradiance" -u "W.m-2" \
                  -F 2601.3 -N 0.0 -T 0.0
