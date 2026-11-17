@@ -10,6 +10,25 @@ SKELFILE="$SP_DIR/sp_sw_280_je_venus_skel"
 # Skeleton of our own file: SO added, OSSO isomers left out.
 SKELFILE_VENUS="$SP_DIR/sp_sw_280_venus_skel"
 SPECFILE_VENUS="$SP_DIR/sp_sw_280_venus"
+
+# Column amounts (kg m-2) of each gas of our own file, and of each
+# continuum (kg2 m-5), in the reference column (venus_atm_obs_so2.raw and
+# the SO profile), with its surface pressure (Pa). tidy_90 uses them to
+# make the strongest absorber of each band its major gas.
+COL_VENUS_H2O="1.2652e+01"
+COL_VENUS_CO2="1.0140e+06"
+COL_VENUS_SO2="1.5544e+02"
+COL_VENUS_N2="2.3455e+04"
+COL_VENUS_CO="2.2993e+00"
+COL_VENUS_OCS="2.7359e+00"
+COL_VENUS_H2S="1.1624e+00"
+COL_VENUS_HDO="1.9289e-01"
+COL_VENUS_HCl="3.4610e-01"
+COL_VENUS_HF="6.0165e-04"
+COL_VENUS_SO="4.1414e-06"
+COL_VENUS_H2OC="5.6005e-03"
+COL_VENUS_CO2C="3.5494e+07"
+P_SURF_VENUS="9.2057e+06"
 # VENUS_SW_VARIANT, when set, is appended to the name of the spectral file,
 # so that variants assembled from the same k files sit side by side.
 SPECFILE="$SP_DIR/sp_sw_280_je_venus${VENUS_SW_VARIANT:+_${VENUS_SW_VARIANT}}"

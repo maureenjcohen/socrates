@@ -163,5 +163,39 @@ if grep -q -i 'error' "${SPECFILE_VENUS}_log" ; then
   echo "prep_spec reported errors: see ${SPECFILE_VENUS}_log"
   exit 1
 fi
+
+# Major gas of each band. Under equivalent extinction, the solver's
+# default overlap treatment, the first gas listed in a band keeps its
+# k-terms and the others become grey, so the first must be the strongest.
+# tidy_90 puts first the gas that absorbs most down to the level where
+# the band becomes opaque, given the columns of the reference column (in
+# the file's gas order: H2O, CO2, SO2, N2, CO, OCS, H2S, HDO, HCl, HF, SO;
+# then the H2O-H2O and CO2-CO2 continua). Continua are not made major.
+echo 'Setting the major gas of each band'
+tidy_90 << EOF > "${SPECFILE_VENUS}_tidy_log" 2>&1
+$SPECFILE_VENUS
+o
+6
+$COL_VENUS_H2O
+$COL_VENUS_CO2
+$COL_VENUS_SO2
+$COL_VENUS_N2
+$COL_VENUS_CO
+$COL_VENUS_OCS
+$COL_VENUS_H2S
+$COL_VENUS_HDO
+$COL_VENUS_HCl
+$COL_VENUS_HF
+$COL_VENUS_SO
+$COL_VENUS_H2OC
+$COL_VENUS_CO2C
+$P_SURF_VENUS
+n
+-1
+EOF
+if grep -q -i 'error\|erroneous' "${SPECFILE_VENUS}_tidy_log" ; then
+  echo "tidy_90 reported errors: see ${SPECFILE_VENUS}_tidy_log"
+  exit 1
+fi
 echo "Wrote $SPECFILE_VENUS"
 echo -n 'Finished mk_sp_sw_280_venus: '; date
