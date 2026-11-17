@@ -59,6 +59,10 @@ cis-OSSO.uvxsc, trans-OSSO.uvxsc, OSO-S.uvxsc, pt_single
 mk_sp_sw_280_venus_skel      skeleton of our own file: as the JE skeleton
                              with SO (gas 111) added and the OSSO isomers
                              left out
+mk_sp_sw_280_venus           assembles our own file, sp_sw_280_venus, from
+                             the k files of mk_sp_sw_280_je_venus and
+                             mk_uv_sw_280_venus and the .mon files of
+                             run_scatter: ./podman_socrates ./mk_sp_sw_280_venus
 mk_so_uvxsc                  SO UV cross-sections (Heays et al. 2023), 12
                              temperatures -> so.uvxsc (250 MB, not in git;
                              kept at $VENUS_SW_WORK/uv/so.uvxsc). Needs

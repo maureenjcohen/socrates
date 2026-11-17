@@ -1,0 +1,162 @@
+#!/bin/bash
+# Assembles our own shortwave spectral file, sp_sw_280_venus, from k files
+# and optics that other scripts make. It fits nothing itself.
+#
+# Contents:
+#   bands, p-T grid, solar spectrum and Rayleigh scattering as the JE file;
+#   line k-terms of H2O, CO2 (every band 104-280), SO2, CO, OCS, H2S, HDO,
+#     HCl, HF, from mk_sp_sw_280_je_venus;
+#   UV k-terms of SO2 (mk_sp_sw_280_je_venus), and of SO and CO2
+#     (mk_uv_sw_280_venus);
+#   H2O-H2O and CO2-CO2 continua, from mk_sp_sw_280_je_venus;
+#   the four cloud modes and the UV absorber in the five aerosol slots,
+#     from the .mon files of run_scatter.
+# The OSSO isomers are not in it: the skeleton mk_sp_sw_280_venus_skel
+# lists SO in their place.
+#
+# The CO2 and SO2 line k files are concatenated here from the per-band
+# files, because mk_sp_je_gaps writes a CO2 concatenation with bands left
+# out under the name the JE recipe uses.
+#
+# Usage, inside the container, after ./run_scatter:
+#   ./podman_socrates ./mk_sp_sw_280_venus
+# Output: SPECFILE_VENUS and SPECFILE_VENUS_k, with the prep_spec log.
+
+set -eu
+cd "$(dirname "$0")"
+echo -n 'Started mk_sp_sw_280_venus: '; date
+. ./env_sw_280_venus
+
+mkdir -p "$SP_DIR"
+./mk_sp_sw_280_venus_skel "$SKELFILE_VENUS" > /dev/null
+
+missing=0
+need () {
+  if [ ! -s "$1" ] ; then
+    echo "Missing $1: make it with $2"
+    missing=1
+  fi
+}
+
+for ((i = 104; i <= 280; i++)) ; do
+  need "$SP_DIR/co2_s${i}_l" mk_sp_sw_280_je_venus
+done
+for ((i = 211; i <= 280; i++)) ; do
+  need "$SP_DIR/so2_s${i}_l" mk_sp_sw_280_je_venus
+done
+for f in h2o_vis_l h2o_swf_l so2_u280_l co_280_l ocs_280_l h2s_280_l \
+         hdo_vis_l hdo_swf_l hcl_280_l hf_280_l h2o-h2o_sw_c co2-co2_sw_c ; do
+  need "$SP_DIR/$f" mk_sp_sw_280_je_venus
+done
+need "$SP_DIR/so_u280_l" mk_uv_sw_280_venus
+need "$SP_DIR/co2_u280_l" mk_uv_sw_280_venus
+for f in soluble.mon soot.mon sulphuric.mon oceanic.mon ash.mon ; do
+  need "$f" run_scatter
+done
+if [ $missing -ne 0 ] ; then
+  exit 1
+fi
+
+co2_lines="$SP_DIR/co2_s_all_l_venus"
+so2_lines="$SP_DIR/so2_s_all_l_venus"
+for ((i = 104; i <= 280; i++)) ; do cat "$SP_DIR/co2_s${i}_l" ; done > "$co2_lines"
+for ((i = 211; i <= 280; i++)) ; do cat "$SP_DIR/so2_s${i}_l" ; done > "$so2_lines"
+
+# Band-averaged aerosol optics, remade on every run.
+echo 'Aerosol optics'
+for slot in soluble soot sulphuric oceanic ash ; do
+  rm -f ${slot}_sw_venus.avg
+  Cscatter_average -s "$SKELFILE_VENUS" -P 1 -w -S "$SOLSPEC" \
+    -a ${slot}_sw_venus.avg ${slot}.mon > /dev/null
+done
+
+echo 'Constructing spectral file'
+# prep_spec asks before overwriting a file, which the scripted answers
+# below do not allow for.
+rm -f "$SPECFILE_VENUS" "${SPECFILE_VENUS}_k"
+prep_spec << EOF > "${SPECFILE_VENUS}_log" 2>&1
+$SKELFILE_VENUS
+n
+$SPECFILE_VENUS
+2
+n
+$SOLSPEC
+n
+3
+c
+2
+2
+13
+5
+$SP_DIR/h2o_vis_l
+5
+y
+$SP_DIR/h2o_swf_l
+5
+y
+$co2_lines
+5
+y
+$SP_DIR/co2_u280_l
+5
+y
+$so2_lines
+5
+y
+$SP_DIR/so2_u280_l
+5
+y
+$SP_DIR/co_280_l
+5
+y
+$SP_DIR/ocs_280_l
+5
+y
+$SP_DIR/h2s_280_l
+5
+y
+$SP_DIR/hdo_vis_l
+5
+y
+$SP_DIR/hdo_swf_l
+5
+y
+$SP_DIR/hcl_280_l
+5
+y
+$SP_DIR/hf_280_l
+5
+y
+$SP_DIR/so_u280_l
+19
+$SP_DIR/h2o-h2o_sw_c
+19
+y
+$SP_DIR/co2-co2_sw_c
+11
+soluble_sw_venus.avg
+11
+y
+oceanic_sw_venus.avg
+11
+y
+soot_sw_venus.avg
+11
+y
+ash_sw_venus.avg
+11
+y
+sulphuric_sw_venus.avg
+-1
+EOF
+
+if [ ! -s "$SPECFILE_VENUS" ] || [ ! -s "${SPECFILE_VENUS}_k" ] ; then
+  echo "prep_spec did not write the spectral file: see ${SPECFILE_VENUS}_log"
+  exit 1
+fi
+if grep -q -i 'error' "${SPECFILE_VENUS}_log" ; then
+  echo "prep_spec reported errors: see ${SPECFILE_VENUS}_log"
+  exit 1
+fi
+echo "Wrote $SPECFILE_VENUS"
+echo -n 'Finished mk_sp_sw_280_venus: '; date
