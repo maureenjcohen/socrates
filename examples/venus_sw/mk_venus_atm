@@ -35,6 +35,7 @@ Ccdl2cdf -o venus.q venus_1.q
 Ccdl2cdf -o venus.co2 venus_1.co2
 Ccdl2cdf -o venus.n2 venus_1.n2
 Ccdl2cdf -o venus.so2 venus_1.so2
+Ccdl2cdf -o venus.so so_vpcm_day.so
 #Ccdl2cdf -o venus.sulph venus_4_all.sulph
 Ccdl2cdf -o venus.soot haus_mode1.soot
 Ccdl2cdf -o venus.sulph haus_mode2.sulph

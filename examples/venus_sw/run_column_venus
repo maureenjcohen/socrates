@@ -1,0 +1,42 @@
+#!/bin/bash
+# Runs one shortwave column with the inputs of mk_venus_atm (the
+# venus_atm_obs_so2.raw atmosphere, the SO profile, the Haus cloud and the
+# Crisp UV absorber) through l_run_cdf, with the options of check_je_file.
+# Any spectral file can be run on the same inputs, so that runs differ only
+# in the file.
+#
+# Usage, inside the container:
+#   ./podman_socrates ./run_column_venus <tag> [spectral file]
+# The spectral file defaults to SPECFILE_VENUS; its _k file must sit beside
+# it, under VENUS_SW_WORK. Gases and aerosols that the file does not hold
+# are ignored.
+# Output: VENUS_SW_WORK/column/<tag>/ holds the inputs, the l_run_cdf log
+# and the output as CDL text (new.<ext>). Compare runs with
+#   ./column_summary $VENUS_SW_WORK/column/<tag1> $VENUS_SW_WORK/column/<tag2>
+
+set -eu
+here=$(cd "$(dirname "$0")" && pwd)
+cd "$here"
+. ./env_sw_280_venus
+tag=$1
+sp=${2:-$SPECFILE_VENUS}
+if [ ! -s "$sp" ] || [ ! -s "${sp}_k" ] ; then
+  echo "Spectral file $sp or its _k file not found"
+  exit 1
+fi
+
+run=$VENUS_SW_WORK/column/$tag
+rm -rf "$run"; mkdir -p "$run"
+./mk_venus_atm > "$run/mk_venus_atm.log" 2>&1
+mv venus.* "$run"/
+cp planet.nml "$run"/
+cd "$run"
+ln -s "$sp" sp
+ln -s "${sp}_k" sp_k
+Cl_run_cdf -N planet.nml -B venus -s sp -R 1 280 -S \
+  -r -g 4 -u -C 5 -ch 280 -a > l_run_cdf.log 2>&1
+for ext in uflx dflx sflx vflx nflx hrts aflx; do
+  if [ ! -s "venus.$ext" ]; then echo "$ext: not written"; continue; fi
+  Ccdf2cdl -o "new.$ext" "venus.$ext" > /dev/null
+done
+echo "Wrote $run"

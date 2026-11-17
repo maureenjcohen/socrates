@@ -80,8 +80,10 @@ mk_uv_sw_280_venus           k-terms of SO (bands 3-15) and CO2 UV (bands
 Column runs
 -----------
 mk_venus_atm            venus_atm_obs_so2.raw, the haus_mode* cloud
-                        profiles and crisp_uv_absorber.wtsol ->
-                        venus.<suffix> netCDF inputs
+                        profiles, crisp_uv_absorber.wtsol and
+                        so_vpcm_day.so -> venus.<suffix> netCDF inputs
+mk_so_column            SO profile of the column -> so_vpcm_day.so, from
+                        so_day_mean_vpcm.txt (Venus PCM day mean)
 mk_haus_cloud           cloud profiles of the Haus et al. (2016) standard
                         model, all four modes -> haus_mode1.soot,
                         haus_mode2.sulph, haus_modep.oceanic,
@@ -89,6 +91,10 @@ mk_haus_cloud           cloud profiles of the Haus et al. (2016) standard
                         prints each mode's optical depth at 1 micron:
                         ./mk_haus_cloud [spectral file]
 planet.nml              Venus constants for Cl_run_cdf -N
+run_column_venus        one column with the mk_venus_atm inputs and any
+                        spectral file (ours by default), output as CDL
+                        text in VENUS_SW_WORK/column/<tag>:
+                        ./podman_socrates ./run_column_venus <tag> [file]
 Run: Cl_run_cdf -N planet.nml -B venus -s sp_sw_280_je_venus -R 1 280 -S
      -r -g 4 -u -C 5 -ch 280 -a
 

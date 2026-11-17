@@ -1,0 +1,58 @@
+#!/usr/bin/env python3
+"""Writes the SO profile of the column, so_vpcm_day.so, from the Venus PCM
+day-mean profile in so_day_mean_vpcm.txt (mass mixing ratio, kg/kg).
+
+The profile is on the 78 pressure levels of the column, top level last in
+the file; it is written top first, on the pressure grid of the existing
+profile files, in their CDL layout. Prints the column amount.
+
+Usage: mk_so_column
+Runs on the host; needs only the Python 3 standard library.
+"""
+import importlib.machinery
+import importlib.util
+import os
+import sys
+
+sys.dont_write_bytecode = True
+HERE = os.path.dirname(os.path.abspath(__file__))
+_loader = importlib.machinery.SourceFileLoader(
+    'mk_haus_cloud', os.path.join(HERE, 'mk_haus_cloud'))
+_spec = importlib.util.spec_from_loader('mk_haus_cloud', _loader)
+hc = importlib.util.module_from_spec(_spec)
+_loader.exec_module(hc)
+
+PROFILE = os.path.join(HERE, 'so_day_mean_vpcm.txt')
+OUT_FILE = os.path.join(HERE, 'so_vpcm_day.so')
+# Largest relative difference allowed between the profile's pressures and
+# the column's, which agree to rounding.
+P_TOL = 1.0e-3
+
+
+def main():
+    rows = []
+    with open(PROFILE) as f:
+        for line in f:
+            s = line.split()
+            if s and not line.startswith('#'):
+                rows.append((float(s[0]), float(s[3])))
+    rows.sort()
+    plev = hc.template_plev(hc.TEMPLATE)
+    if len(rows) != len(plev):
+        sys.exit('Profile has %d levels, column %d' % (len(rows), len(plev)))
+    worst = max(abs(p - q) / q for (p, _), q in zip(rows, plev))
+    if worst > P_TOL:
+        sys.exit('Profile pressures differ from the column by up to %.2g'
+                 % worst)
+    q = [r[1] for r in rows]
+    q = [qk if qk >= hc.Q_MIN else 0.0 for qk in q]
+    hc.write_cdl(OUT_FILE, hc.TEMPLATE, 'so', 'Sulphur monoxide', q)
+
+    p_lay, _, p_lev, _ = hc.read_atm(hc.ATM_FILE)
+    col = sum(qk * (p_lev[i + 1] - p_lev[i]) / hc.GRAV
+              for i, qk in enumerate(q))
+    print('wrote %s; column %.3e kg m-2' % (os.path.basename(OUT_FILE), col))
+
+
+if __name__ == '__main__':
+    main()
