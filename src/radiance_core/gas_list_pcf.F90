@@ -20,7 +20,7 @@ IMPLICIT NONE
 
 INTEGER, PRIVATE :: i
 
-INTEGER, PARAMETER :: npd_gases = 110
+INTEGER, PARAMETER :: npd_gases = 111
 !   Number of indexed gases
 
 INTEGER, PARAMETER :: IP_h2o = 1
@@ -243,6 +243,8 @@ INTEGER, PARAMETER :: IP_ch3f = 109
 !   Identifier for methyl fluoride
 INTEGER, PARAMETER :: IP_ch3br = 110
 !   Identifier for methyl bromide
+INTEGER, PARAMETER :: IP_so = 111
+!   Identifier for sulphur monoxide
 
 
 ! Column headers for reading data in raw_input
@@ -274,7 +276,7 @@ CHARACTER (LEN=10), PARAMETER :: header_gas(npd_gases) = (/ &
     'CH3S      ', 'C2H6S     ', 'C2H6S2    ', 'C3H4      ', &
     'C4H3      ', 'SiH4      ', 'S2        ', 'SF6       ', &
     'CS2       ', 'S8        ', 'CN        ', 'CH3Cl     ', &
-    'CH3F      ', 'CH3Br     ' /)
+    'CH3F      ', 'CH3Br     ', 'SO        ' /)
 
 ! File suffixes
 CHARACTER (LEN=12), PARAMETER :: gas_suffix(npd_gases) = (/ &
@@ -305,7 +307,7 @@ CHARACTER (LEN=12), PARAMETER :: gas_suffix(npd_gases) = (/ &
     'ch3s        ', 'c2h6s       ', 'c2h6s2      ', 'c3h4        ', &
     'c4h3        ', 'sih4        ', 's2          ', 'sf6         ', &
     'cs2         ', 's8          ', 'cn          ', 'ch3cl       ', &
-    'ch3f        ', 'ch3br       ' /)
+    'ch3f        ', 'ch3br       ', 'so          ' /)
 
 ! Long names
 CHARACTER (LEN=20), PARAMETER :: name_absorb(npd_gases) = (/ &
@@ -418,7 +420,8 @@ CHARACTER (LEN=20), PARAMETER :: name_absorb(npd_gases) = (/ &
                                    "Cyanogen radical    ", &
                                    "Methyl chloride     ", &
                                    "Methyl fluoride     ", &
-                                   "Methyl bromide      " /)
+                                   "Methyl bromide      ", &
+                                   "Sulphur monoxide    " /)
 
 
 ! Molecular weights taken from "General Inorganic Chemistry"
@@ -533,7 +536,8 @@ REAL (RealK), PARAMETER :: molar_weight(npd_gases) = (/ &
   26.0174_RealK,     & ! 107: CN (from NIST)
   50.4880_RealK,     & ! 108: CH3Cl (from NIST)
   34.0329_RealK,     & ! 109: CH3F (from NIST)
-  94.9390_RealK     /) ! 110: CH3Br (from NIST)
+  94.9390_RealK,    & ! 110: CH3Br (from NIST)
+  48.0640_RealK     /) ! 111: SO (from NIST)
 
 
 ! Array of identifiers in HITRAN for each gas in the radiation code.
@@ -647,7 +651,8 @@ INTEGER, PARAMETER :: hitran_number(npd_gases) = (/ &
   0  , & ! 107: CN
   24 , & ! 108: CH3Cl
   51 , & ! 109: CH3F
-  40  /) ! 110: CH3Br
+  40 , & ! 110: CH3Br
+  50  /) ! 111: SO
 
 ! Maximum number of specified HITRAN isotopes for a given absorber
 INTEGER, PARAMETER :: npd_isotopes = 3
@@ -771,7 +776,8 @@ REAL (RealK), PARAMETER :: depolarization_factor(npd_gases) = (/ &
   0.0_RealK,     & ! 107: CN
   0.0_RealK,     & ! 108: CH3Cl
   0.0_RealK,     & ! 109: CH3F
-  0.0_RealK     /) ! 110: CH3Br
+  0.0_RealK,    & ! 110: CH3Br
+  0.0_RealK     /) ! 111: SO
 
 ! Minimum wavelength to consider Rayleigh scattering
 REAL (RealK), PARAMETER :: rayleigh_cutoff(npd_gases) = (/ &
@@ -884,7 +890,8 @@ REAL (RealK), PARAMETER :: rayleigh_cutoff(npd_gases) = (/ &
   0.0_RealK,       & ! 107: CN
   0.0_RealK,       & ! 108: CH3Cl
   0.0_RealK,       & ! 109: CH3F
-  0.0_RealK       /) ! 110: CH3Br
+  0.0_RealK,      & ! 110: CH3Br
+  0.0_RealK       /) ! 111: SO
 
 ! Maximum number of photolysis products for a given absorber
 INTEGER, PARAMETER :: npd_products = 9
@@ -1821,7 +1828,8 @@ CHARACTER(LEN=56), PARAMETER :: photol_fldname(0:npd_products, npd_gases) &
   (blank, i=0, npd_products),        & ! CN
   (blank, i=0, npd_products),        & ! CH3Cl
   (blank, i=0, npd_products),        & ! CH3F
-  (blank, i=0, npd_products)         & ! CH3Br
+  (blank, i=0, npd_products),        & ! CH3Br
+  (blank, i=0, npd_products)         & ! SO
   ], shape=[npd_products+1, npd_gases] )
 
 CHARACTER(LEN=56), PARAMETER :: photol_products(npd_products, npd_gases) &
@@ -1935,7 +1943,8 @@ CHARACTER(LEN=56), PARAMETER :: photol_products(npd_products, npd_gases) &
   (blank, i=1, npd_products),        & ! 107: CN
   (blank, i=1, npd_products),        & ! 108: CH3Cl
   (blank, i=1, npd_products),        & ! 109: CH3F
-  (blank, i=1, npd_products)         & ! 110: CH3Br
+  (blank, i=1, npd_products),        & ! 110: CH3Br
+  (blank, i=1, npd_products)         & ! 111: SO
   ], shape=[npd_products, npd_gases] )
 
 ! Threshold wavelength defining energy required for photolysis
@@ -2050,7 +2059,8 @@ REAL (RealK), PARAMETER :: threshold_wavelength(npd_products, npd_gases) &
   (0.0_RealK, i=1, npd_products),   & ! 107: CN
   (0.0_RealK, i=1, npd_products),   & ! 108: CH3Cl
   (0.0_RealK, i=1, npd_products),   & ! 109: CH3F
-  (0.0_RealK, i=1, npd_products)    & ! 110: CH3Br
+  (0.0_RealK, i=1, npd_products),   & ! 110: CH3Br
+  (0.0_RealK, i=1, npd_products)    & ! 111: SO
   ], shape=[npd_products, npd_gases] )
 
 ! Unless otherwise stated, data comes from JPL publication No. 15-10:
