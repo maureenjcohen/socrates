@@ -73,6 +73,11 @@ done
 echo 'Constructing spectral file'
 # prep_spec asks before overwriting a file, which the scripted answers
 # below do not allow for.
+# The CO2 UV k-terms are read before the CO2 line k-terms. The line fits
+# are self-broadened, and once prep_spec has read one it treats every later
+# CO2 table as a self-broadened p-T table: the one-pressure UV table would
+# then replace the shared p-T grid. Read first, it is kept as a
+# temperature look-up table for its own bands.
 rm -f "$SPECFILE_VENUS" "${SPECFILE_VENUS}_k"
 prep_spec << EOF > "${SPECFILE_VENUS}_log" 2>&1
 $SKELFILE_VENUS
@@ -94,10 +99,10 @@ y
 $SP_DIR/h2o_swf_l
 5
 y
-$co2_lines
+$SP_DIR/co2_u280_l
 5
 y
-$SP_DIR/co2_u280_l
+$co2_lines
 5
 y
 $so2_lines
