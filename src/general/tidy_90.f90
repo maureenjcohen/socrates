@@ -595,7 +595,7 @@ CONTAINS
           l_cont_added=.FALSE.
           DO i=1,n_band_absorb
             i_gas=Spectrum%Gas%index_absorb(i, i_band)
-            column_mass_gas(i)=column_gas(i)*p_level/p_surf
+            column_mass_gas(i)=column_gas(i_gas)*p_level/p_surf
             n_k=Spectrum%Gas%i_band_k(i_band, i_gas)
             trans_column_gas(i)=SUM(Spectrum%Gas%w(1:n_k, i_band, i_gas) &
               *EXP(-Spectrum%Gas%k(1:n_k, i_band, i_gas)*column_mass_gas(i)))
@@ -608,7 +608,7 @@ CONTAINS
 !           Only consider continua whose overlap treatment is the same as that
 !           for gases.
             IF (Spectrum%ContGen%i_cont_overlap_band(i_band, i_cont) == 0) THEN
-              column_mass_cont(j)=column_cont(j)*(p_level/p_surf)**2
+              column_mass_cont(j)=column_cont(i_cont)*(p_level/p_surf)**2
               n_k=Spectrum%ContGen%i_band_k_cont(i_band, i_cont)
               trans_column_cont(j) &
                   =SUM(Spectrum%ContGen%w_cont(1:n_k, i_band, i_cont) &
