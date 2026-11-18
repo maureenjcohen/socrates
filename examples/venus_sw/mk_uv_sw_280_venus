@@ -59,7 +59,9 @@ if [ $# -gt 0 ] ; then
   exit 0
 fi
 
-cat "$SP_DIR"/so_u???_l > "$SP_DIR/so_u280_l"
+for ((i = 3; i <= 15; i++)) ; do
+  cat "$SP_DIR/so_u$(printf '%03d' $i)_l"
+done > "$SP_DIR/so_u280_l"
 echo "SO: $SP_DIR/so_u280_l"
 
 if [ ! -s "$SP_DIR/co2_u280_l" ] ; then
