@@ -1,0 +1,115 @@
+#!/usr/bin/env python3
+"""Writes the refractive index of mode 1 particles carrying the UV absorber
+of Perez-Hoyos et al. (2018, JGR Planets 123, 145), and a wavelength grid
+fine enough for Cscatter to resolve it.
+
+The particles are 75% sulphuric acid (refract_sulphuric_75_pw) with a
+Gaussian absorption band added to the imaginary part: centre 0.34 um, full
+width at half maximum 0.14 um, as the paper gives it, and peak 1.36e-2,
+fitted to the best-fit values of their Fig. 14 over 0.30-0.47 um with that
+shape fixed. The real part is left as Palmer & Williams: the paper's
+Kramers-Kronig real part differs from it by less than 1%.
+
+refract_sulphuric_75_ph
+    Refractive index on the grid of wl_venus_uv, with the acid data
+    interpolated linearly, as Cscatter -l would do.
+wl_venus_uv
+    Wavelengths for Cscatter -w: every 5 nm from 0.20 to 0.80 um, the width
+    of the spectral file's ultraviolet and visible bands, then the points
+    of data/aerosol/wl_aerosol beyond 0.80 um. Cscatter_average
+    interpolates linearly between these points across each band, so a
+    coarser grid would flatten the absorption band.
+
+Usage: mk_ph_refract
+Runs on the host; needs only the Python 3 standard library.
+"""
+import math
+import os
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ACID_FILE = os.path.join(HERE, 'refract_sulphuric_75_pw')
+WL_STD_FILE = os.path.join(HERE, '..', '..', 'data', 'aerosol', 'wl_aerosol')
+REFRACT_FILE = os.path.join(HERE, 'refract_sulphuric_75_ph')
+WL_FILE = os.path.join(HERE, 'wl_venus_uv')
+
+# Absorber band in m_i.
+PEAK = 1.36e-2
+CENTRE = 0.34e-6
+FWHM = 0.14e-6
+SIGMA = FWHM / (2.0 * math.sqrt(2.0 * math.log(2.0)))
+
+# Fine grid (m): 5 nm steps from FINE_LO to FINE_HI inclusive.
+FINE_LO = 0.20e-6
+FINE_HI = 0.80e-6
+FINE_STEP = 5.0e-9
+
+
+def read_data(path, ncol):
+    rows = []
+    with open(path) as f:
+        inside = False
+        for line in f:
+            if line.startswith('*BEGIN_DATA'):
+                inside = True
+            elif line.startswith('*END'):
+                break
+            elif inside and line.strip():
+                rows.append(tuple(float(v) for v in line.split()[:ncol]))
+    return rows
+
+
+def interp(x, xs, ys):
+    for i in range(len(xs) - 1):
+        if xs[i] <= x <= xs[i + 1]:
+            f = (x - xs[i]) / (xs[i + 1] - xs[i])
+            return ys[i] + f * (ys[i + 1] - ys[i])
+    raise ValueError('wavelength %g m outside the acid data' % x)
+
+
+def absorber(wl):
+    return PEAK * math.exp(-0.5 * ((wl - CENTRE) / SIGMA) ** 2)
+
+
+def main():
+    acid = read_data(ACID_FILE, 3)
+    a_wl = [r[0] for r in acid]
+    a_re = [r[1] for r in acid]
+    a_im = [r[2] for r in acid]
+
+    n_fine = int(round((FINE_HI - FINE_LO) / FINE_STEP)) + 1
+    fine = [FINE_LO + i * FINE_STEP for i in range(n_fine)]
+    coarse = [r[0] for r in read_data(WL_STD_FILE, 1) if r[0] > FINE_HI]
+    grid = fine + coarse
+
+    with open(WL_FILE, 'w') as f:
+        f.write('Wavelengths for Cscatter: 5 nm steps over 0.20-0.80 um, '
+                'then wl_aerosol\n*BEGIN_DATA\n')
+        for wl in grid:
+            f.write('%.5e\n' % wl)
+        f.write('*END\n')
+
+    # The refractive index also needs the acid file's last point, which
+    # closes the interpolation range beyond the last wavelength.
+    ri_wl = grid + [w for w in a_wl if w > grid[-1]]
+    with open(REFRACT_FILE, 'w') as f:
+        f.write('Refractive Index of 75 % Sulphuric Acid Droplets with the '
+                'UV absorber of Perez-Hoyos et al. (2018)\n'
+                '     Wavelength (m)  Real Part       Imaginary Part\n'
+                '*BEGIN_DATA\n')
+        for wl in ri_wl:
+            re = interp(wl, a_wl, a_re)
+            im = interp(wl, a_wl, a_im) + absorber(wl)
+            f.write('     %.5e     %.5e     %.5e\n' % (wl, re, im))
+        f.write('*END\n')
+
+    print('%s: %d wavelengths' % (os.path.basename(WL_FILE), len(grid)))
+    print('%s: %d points' % (os.path.basename(REFRACT_FILE), len(ri_wl)))
+    for wl in (0.20e-6, 0.30e-6, 0.34e-6, 0.40e-6, 0.47e-6, 0.55e-6,
+               0.70e-6):
+        print('  %.3f um  m_i = %.3e  (acid %.1e)'
+              % (wl * 1e6, interp(wl, a_wl, a_im) + absorber(wl),
+                 interp(wl, a_wl, a_im)))
+
+
+if __name__ == '__main__':
+    main()

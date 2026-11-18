@@ -29,7 +29,10 @@ column_summary    band-summed fluxes and heating rates of column runs,
 
 Spectral file
 -------------
-env_sw_280_venus             paths, maximum absorber paths, data file names
+env_sw_280_venus             paths, maximum absorber paths, data file names;
+                             the UV absorber switch VENUS_UV_ABSORBER, crisp
+                             (default) or ph, and for ph the spectral file
+                             sp_sw_280_venus_ph
 mk_sp_sw_280_je_venus_skel   skeleton: bands, gases, continua, aerosols
 mk_<gas>_lbl_sw_280_je_venus line-by-line absorption for one gas (slow)
 mk_sp_sw_280_je_venus        k-terms from the line-by-line files, then the
@@ -38,12 +41,18 @@ mk_sp_je_gaps                the same, as sp_sw_280_je_venus_gaps: no CO2 in
                              the 13 bands where the JE file has none; for
                              comparison with the JE file only
 run_scatter                  Mie optics of the cloud modes -> .mon files;
-                             modes 1 and 2 75% acid, modes 2' and 3 95.6%
+                             modes 1 and 2 75% acid, modes 2' and 3 95.6%;
+                             the soluble slot as VENUS_UV_ABSORBER selects
 mk_uv_absorber               UV absorber of Crisp (1986): absorption only,
                              in the "soluble" slot -> uv_absorber.mon, and
                              its column profile crisp_uv_absorber.wtsol
 crisp1986_uv_absorber.txt    Crisp (1986) Table IV, absorption efficiency
                              of the UV absorber in 21 intervals
+mk_ph_refract                UV absorber of Perez-Hoyos et al. (2018) in
+                             mode 1: 75% acid with a Gaussian added to m_i
+                             (peak 1.36e-2 at 0.34 um, FWHM 0.14 um)
+                             -> refract_sulphuric_75_ph, and the 5 nm
+                             wavelength grid wl_venus_uv for Cscatter -w
 run_scatter_acid             the same Mie optics with every mode made of
                              acid of one refractive index file
 refract_sulphuric_75_pw, refract_sulphuric_84p5, refract_sulphuric_95p6
@@ -82,14 +91,20 @@ mk_uv_sw_280_venus           k-terms of SO (bands 3-15) and CO2 UV (bands
 Column runs
 -----------
 mk_venus_atm            venus_atm_obs_so2.raw, the haus_mode* cloud
-                        profiles, crisp_uv_absorber.wtsol and
+                        profiles, the UV absorber's profiles (crisp:
+                        crisp_uv_absorber.wtsol; ph: mode 1 split into
+                        ph_mode1_lower.soot and ph_mode1_upper.wtsol) and
                         so_vpcm_day.so -> venus.<suffix> netCDF inputs
 mk_so_column            SO profile of the column -> so_vpcm_day.so, from
                         so_day_mean_vpcm.txt (Venus PCM day mean)
 mk_haus_cloud           cloud profiles of the Haus et al. (2016) standard
                         model, all four modes -> haus_mode1.soot,
                         haus_mode2.sulph, haus_modep.oceanic,
-                        haus_mode3.ash; with a spectral file as argument
+                        haus_mode3.ash, and mode 1 split at 65 km ->
+                        ph_mode1_lower.soot, ph_mode1_upper.wtsol (the
+                        part above 65 km scaled to optical depth 3.2 at
+                        0.63 um, as Perez-Hoyos et al. 2018); with a
+                        spectral file as argument
                         prints each mode's optical depth at 1 micron:
                         ./mk_haus_cloud [spectral file]
 planet.nml              Venus constants for Cl_run_cdf -N

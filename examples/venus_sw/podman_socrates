@@ -12,6 +12,7 @@
 #   VENUS_SW_WORK     work directory for line-by-line and k files (required)
 #   LINE_DATA_DIR     directory holding the HITRAN line lists (required)
 #   VENUS_SW_PROCS    OpenMP threads per Ccorr_k call (optional)
+#   VENUS_UV_ABSORBER UV absorber, crisp (default) or ph (optional)
 #   CONTAINER_ENGINE  podman (default) or docker
 #   LFRIC_DEV_IMAGE   image name (default docker.io/maureenjcohen/lfric_dev:amd64)
 
@@ -42,6 +43,7 @@ done
 
 exec "$engine" run --rm "${tty[@]}" --hostname lfric_dev --ulimit stack=-1 \
   -e VENUS_SW_WORK -e LINE_DATA_DIR -e VENUS_SW_PROCS="${VENUS_SW_PROCS:-}" \
+  -e VENUS_UV_ABSORBER="${VENUS_UV_ABSORBER:-crisp}" \
   -v "$rad_dir:$rad_dir" -v "$VENUS_SW_WORK:$VENUS_SW_WORK" \
   -v "$LINE_DATA_DIR:$LINE_DATA_DIR:ro" "${extra[@]}" \
   -w "$here" "$image" "${cmd[@]}"

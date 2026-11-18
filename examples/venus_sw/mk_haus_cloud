@@ -20,6 +20,9 @@ profiles therefore do not depend on the acid concentration.
 
 Output, in this directory, in the CDL layout of the venus_mode* files:
   haus_mode1.soot, haus_mode2.sulph, haus_modep.oceanic, haus_mode3.ash
+and mode 1 split at 65 km for the Perez-Hoyos absorber
+(VENUS_UV_ABSORBER=ph): ph_mode1_lower.soot, ph_mode1_upper.wtsol, the
+part above 65 km scaled to the retrieved optical depth 3.2 at 0.63 um.
 
 With a spectral file as argument, also prints each mode's column optical
 depth at 1 micron (mean of the two bands meeting at 1 micron), for
@@ -56,6 +59,25 @@ MODES = [
      49.0, 11.0, 1.0, 0.1,  50.0, 1.40e-6, 1.23),
     ('3',  'haus_mode3.ash',     'ash',   'Ash',             'Volcanic Ash',
      49.0,  8.0, 1.0, 0.5,  14.0, 3.65e-6, 1.28),
+]
+
+# Mode 1 split for the UV absorber of Perez-Hoyos et al. (2018): the
+# particles above their retrieved mode 1 base (Table 2: 65 +- 2 km) carry
+# the absorber and go in the soluble slot; those below stay in the soot
+# slot. Their file, CDL variable and CDL title, below and above the base.
+# The part above the base is scaled to the retrieved mode 1 optical depth,
+# 3.2 at 0.63 um (Table 2), because the retrieved imaginary index belongs
+# with that amount of particles; the Haus profile has far fewer there.
+PH_MODE1_BASE_KM = 65.0
+PH_MODE1_TAU_063 = 3.2
+# Mass extinction (m2 kg-1) of mode 1 (75% acid, r_g 0.30 um, sigma_g 1.56)
+# at 0.63 um: mean of the two bands meeting there in sp_sw_280_venus. The
+# absorber adds nothing at this wavelength.
+K_EXT_MODE1_063 = 4.715e3
+PH_MODE1_PARTS = [
+    ('ph_mode1_lower.soot', 'soot', 'Soot', -math.inf, PH_MODE1_BASE_KM),
+    ('ph_mode1_upper.wtsol', 'wtsol', 'Water Soluble Aerosol',
+     PH_MODE1_BASE_KM, math.inf),
 ]
 
 
@@ -111,14 +133,19 @@ def number_density(z, name, zb, zc, hup, hlo, n0):
     return n0 * math.exp(-(zb - z) / hlo)
 
 
-def layer_mean(z_hi, z_lo, mode, nsub=200):
-    """Mean of the Haus profile (cm-3) over a layer. The modes have edges
-    sharper than a layer is thick, so the profile at the layer centre
-    would misstate the column."""
+def layer_mean(z_hi, z_lo, mode, nsub=200, z_min=-math.inf, z_max=math.inf):
+    """Mean of the Haus profile (cm-3) over a layer, counting only the part
+    of the layer between z_min and z_max (km). The modes have edges sharper
+    than a layer is thick, so the profile at the layer centre would
+    misstate the column."""
     name, zb, zc, hup, hlo, n0 = mode[0], *mode[5:10]
     dz = (z_hi - z_lo) / nsub
-    return sum(number_density(z_lo + (k + 0.5) * dz, name, zb, zc, hup,
-                              hlo, n0) for k in range(nsub)) / nsub
+    total = 0.0
+    for k in range(nsub):
+        z = z_lo + (k + 0.5) * dz
+        if z_min <= z < z_max:
+            total += number_density(z, name, zb, zc, hup, hlo, n0)
+    return total / nsub
 
 
 def mean_volume(rg, sg):
@@ -221,6 +248,22 @@ def main():
             tot += tau
             line += ', tau(1 um) %.2f' % tau
         print(line)
+        if name == '1':
+            col = sum(qk * dm for qk, dm in zip(q, dmass))
+            for fname_p, var_p, title_p, z_min, z_max in PH_MODE1_PARTS:
+                qp = [layer_mean(z_lev[i], z_lev[i + 1], mode,
+                                 z_min=z_min, z_max=z_max) * 1.0e6
+                      * vol * RHO_CONV / rho_air[i] for i in range(len(z))]
+                frac = sum(qk * dm for qk, dm in zip(qp, dmass)) / col
+                tau = K_EXT_MODE1_063 * frac * col
+                scale = PH_MODE1_TAU_063 / tau if z_max == math.inf else 1.0
+                qp = [qk * scale for qk in qp]
+                qp = [qk if qk >= Q_MIN else 0.0 for qk in qp]
+                write_cdl(os.path.join(HERE, fname_p), TEMPLATE, var_p,
+                          title_p, qp)
+                print('  mode 1 part -> %-21s %.1f%% of the Haus mode 1 '
+                      'column, tau(0.63 um) %.2f, scaled x%.3f to %.2f'
+                      % (fname_p, 100.0 * frac, tau, scale, tau * scale))
     if spfile:
         print('total tau(1 um) %.2f' % tot)
 

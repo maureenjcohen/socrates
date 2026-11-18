@@ -1,7 +1,8 @@
 #!/bin/bash
 # Runs one shortwave column with the inputs of mk_venus_atm (the
 # venus_atm_obs_so2.raw atmosphere, the SO profile, the Haus cloud and the
-# Crisp UV absorber) through l_run_cdf, with the options of check_je_file.
+# UV absorber VENUS_UV_ABSORBER selects) through l_run_cdf, with the options
+# of check_je_file.
 # Any spectral file can be run on the same inputs, so that runs differ only
 # in the file.
 #

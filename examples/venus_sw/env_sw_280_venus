@@ -9,7 +9,21 @@ SP_DIR="${VENUS_SW_WORK}/sp"
 SKELFILE="$SP_DIR/sp_sw_280_je_venus_skel"
 # Skeleton of our own file: SO added, OSSO isomers left out.
 SKELFILE_VENUS="$SP_DIR/sp_sw_280_venus_skel"
-SPECFILE_VENUS="$SP_DIR/sp_sw_280_venus"
+
+# UV absorber, VENUS_UV_ABSORBER:
+#   crisp  Crisp (1986): absorption only, in the soluble slot (default);
+#   ph     Perez-Hoyos et al. (2018): mode 1 above 65 km made of absorbing
+#          particles, in the soluble slot; mode 1 below 65 km stays plain
+#          acid in the soot slot (profiles from mk_haus_cloud).
+# It selects the soluble slot's optics (run_scatter), the soot and soluble
+# profiles (mk_venus_atm) and, for ph, a spectral file of its own.
+VENUS_UV_ABSORBER="${VENUS_UV_ABSORBER:-crisp}"
+case "$VENUS_UV_ABSORBER" in
+  crisp) SPECFILE_VENUS="$SP_DIR/sp_sw_280_venus" ;;
+  ph)    SPECFILE_VENUS="$SP_DIR/sp_sw_280_venus_ph" ;;
+  *)     echo "VENUS_UV_ABSORBER must be crisp or ph, not $VENUS_UV_ABSORBER" >&2
+         exit 1 ;;
+esac
 
 # Column amounts (kg m-2) of each gas of our own file, and of each
 # continuum (kg2 m-5), in the reference column (venus_atm_obs_so2.raw and

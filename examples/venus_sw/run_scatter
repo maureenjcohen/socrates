@@ -4,18 +4,31 @@
 # in the upper cloud; modes 2' and 3 are 95.6%, as nearer the cloud base.
 # Both refractive index files are Palmer & Williams (1975) data on the same
 # wavelengths, so the two concentrations differ only in the data. The
-# "soluble" slot takes uv_absorber.mon, the UV absorber written by
-# mk_uv_absorber. Earth aerosol names are slots only; the .mon files set
-# what each holds:
+# "soluble" slot holds the UV absorber chosen by VENUS_UV_ABSORBER:
+#   crisp  uv_absorber.mon, written by mk_uv_absorber;
+#   ph     mode 1 particles with the absorber in their refractive index
+#          (refract_sulphuric_75_ph, from mk_ph_refract), on the 5 nm grid
+#          wl_venus_uv so that the absorption band is resolved.
+# Earth aerosol names are slots only; the .mon files set what each holds:
 #   soot      mode 1    r_g 0.30 um, sigma_g 1.56
 #   sulphuric mode 2    r_g 1.00 um, sigma_g 1.29
 #   oceanic   mode 2'   r_g 1.40 um, sigma_g 1.23
 #   ash       mode 3    r_g 3.65 um, sigma_g 1.28
+#   soluble   UV absorber (above)
 
 set -e
+. ./env_sw_280_venus
 rm -f soot.mon sulphuric.mon oceanic.mon ash.mon soluble.mon
 
-cp uv_absorber.mon soluble.mon
+case "$VENUS_UV_ABSORBER" in
+  crisp)
+    cp uv_absorber.mon soluble.mon ;;
+  ph)
+    Cscatter -w wl_venus_uv \
+             -r refract_sulphuric_75_ph \
+             -l -C 1 -g 1.0 3.00e-7 1.56 \
+             -n 3.98e8 -o soluble.mon -t 1 -M ;;
+esac
 
 Cscatter -w $RAD_DATA/aerosol/wl_aerosol \
          -r refract_sulphuric_75_pw \

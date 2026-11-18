@@ -38,7 +38,15 @@ Ccdl2cdf -o venus.n2 venus_1.n2
 Ccdl2cdf -o venus.so2 venus_1.so2
 Ccdl2cdf -o venus.so so_vpcm_day.so
 #Ccdl2cdf -o venus.sulph venus_4_all.sulph
-Ccdl2cdf -o venus.soot haus_mode1.soot
+# Mode 1 and the UV absorber, as VENUS_UV_ABSORBER selects (env_sw_280_venus).
+case "$VENUS_UV_ABSORBER" in
+  crisp)
+    Ccdl2cdf -o venus.soot haus_mode1.soot
+    Ccdl2cdf -o venus.wtsol crisp_uv_absorber.wtsol ;;
+  ph)
+    Ccdl2cdf -o venus.soot ph_mode1_lower.soot
+    Ccdl2cdf -o venus.wtsol ph_mode1_upper.wtsol ;;
+esac
 Ccdl2cdf -o venus.sulph haus_mode2.sulph
 Ccdl2cdf -o venus.ocn haus_modep.oceanic
 #Ccdl2cdf -o venus.wtsol $ABSORBER.mxr
@@ -46,7 +54,6 @@ Ccdl2cdf -o venus.ocn haus_modep.oceanic
 #Ccl2cdf -o venus.wtsol haus2_mxr
 #Ccdl2cdf -o venus.dust venus_mode0.dust
 Ccdl2cdf -o venus.ash haus_mode3.ash
-Ccdl2cdf -o venus.wtsol crisp_uv_absorber.wtsol
 Ccdl2cdf -o venus.hdo venus_2.hdo
 Ccdl2cdf -o venus.hcl venus_1.hcl
 Ccdl2cdf -o venus.hf venus_2.hf
