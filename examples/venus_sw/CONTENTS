@@ -73,8 +73,8 @@ acid_test                    column runs with the cloud at each of the
 cis-OSSO.uvxsc, trans-OSSO.uvxsc, OSO-S.uvxsc, pt_single
                              UV cross-sections for the OSSO isomers
 mk_sp_sw_280_venus_skel      skeleton of our own file: as the JE skeleton
-                             with SO (gas 111) added and the OSSO isomers
-                             left out
+                             with SO, S3 and S4 (gases 111-113) added and
+                             the OSSO isomers left out
 mk_sp_sw_280_venus           assembles our own file, sp_sw_280_venus_<absorber>, from
                              the k files of mk_sp_sw_280_je_venus and
                              mk_uv_sw_280_venus and the .mon files of
@@ -91,13 +91,19 @@ mk_co2_uvxsc                 CO2 UV cross-sections (Venot et al. 2018), 10
                              continuum formula -> co2_uv.uvxsc:
                              ./mk_co2_uvxsc <Venot data dir>
 pt_so_uv, pt_co2_uv          the record temperatures, for the look-up fits
-mk_uv_sw_280_venus           k-terms of SO (bands 3-15) and CO2 UV (bands
-                             1-11): ./podman_socrates ./mk_uv_sw_280_venus
+mk_s3s4_uvxsc                S3 and S4 visible cross-sections (Billmers &
+                             Smith 1991; S3 beyond 475 nm Krasnopolsky 1987
+                             x 1.4, as Krasnopolsky 2013) -> s3.uvxsc,
+                             s4.uvxsc: ./mk_s3s4_uvxsc
+mk_uv_sw_280_venus           k-terms of SO (bands 3-15), CO2 UV (bands
+                             1-11), S3 (bands 36-85) and S4 (bands 51-80):
+                             ./podman_socrates ./mk_uv_sw_280_venus
                              [first SO band] [last SO band]
 
 Column runs
 -----------
-mk_venus_atm            venus_atm_obs_so2.raw, the haus_mode* cloud
+mk_venus_atm            venus_atm_obs_so2.raw, the S3 and S4 profiles,
+                        the haus_mode* cloud
                         profiles, the UV absorber's profiles (crisp:
                         crisp_uv_absorber.wtsol; ph: mode 1 split into
                         ph_mode1_lower.soot and ph_mode1_upper.wtsol;
@@ -105,6 +111,10 @@ mk_venus_atm            venus_atm_obs_so2.raw, the haus_mode* cloud
                         so_vpcm_day.so -> venus.<suffix> netCDF inputs
 mk_so_column            SO profile of the column -> so_vpcm_day.so, from
                         so_day_mean_vpcm.txt (Venus PCM day mean)
+mk_s3s4_column          S3 and S4 profiles of the column (Krasnopolsky
+                        2013: 11 and 4 ppt below 10 km, 18 and 6 ppt at
+                        10-19 km, none above) -> s3_kras13.s3,
+                        s4_kras13.s4; prints their column amounts
 mk_haus_cloud           cloud profiles of the Haus et al. (2016) standard
                         model, all four modes -> haus_mode1.soot,
                         haus_mode2.sulph, haus_modep.oceanic,

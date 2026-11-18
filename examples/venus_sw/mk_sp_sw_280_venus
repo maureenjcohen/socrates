@@ -9,11 +9,12 @@
 #     HCl, HF, from mk_sp_sw_280_je_venus;
 #   UV k-terms of SO2 (mk_sp_sw_280_je_venus), and of SO and CO2
 #     (mk_uv_sw_280_venus);
+#   visible k-terms of S3 and S4 (mk_uv_sw_280_venus);
 #   H2O-H2O and CO2-CO2 continua, from mk_sp_sw_280_je_venus;
 #   the four cloud modes and the UV absorber in the five aerosol slots,
 #     from the .mon files of run_scatter.
 # The OSSO isomers are not in it: the skeleton mk_sp_sw_280_venus_skel
-# lists SO in their place.
+# lists SO, S3 and S4 in their place.
 #
 # The CO2 and SO2 line k files are concatenated here from the per-band
 # files, because mk_sp_je_gaps writes a CO2 concatenation with bands left
@@ -51,6 +52,8 @@ for f in h2o_vis_l h2o_swf_l so2_u280_l co_280_l ocs_280_l h2s_280_l \
 done
 need "$SP_DIR/so_u280_l" mk_uv_sw_280_venus
 need "$SP_DIR/co2_u280_l" mk_uv_sw_280_venus
+need "$SP_DIR/s3_u280_l" mk_uv_sw_280_venus
+need "$SP_DIR/s4_u280_l" mk_uv_sw_280_venus
 for f in soluble.mon soot.mon sulphuric.mon oceanic.mon ash.mon ; do
   need "$f" run_scatter
 done
@@ -134,6 +137,12 @@ $SP_DIR/hf_280_l
 5
 y
 $SP_DIR/so_u280_l
+5
+y
+$SP_DIR/s3_u280_l
+5
+y
+$SP_DIR/s4_u280_l
 19
 $SP_DIR/h2o-h2o_sw_c
 19
@@ -170,7 +179,8 @@ fi
 # k-terms and the others become grey, so the first must be the strongest.
 # tidy_90 puts first the gas that absorbs most down to the level where
 # the band becomes opaque, given the columns of the reference column (in
-# the file's gas order: H2O, CO2, SO2, N2, CO, OCS, H2S, HDO, HCl, HF, SO;
+# the file's gas order: H2O, CO2, SO2, N2, CO, OCS, H2S, HDO, HCl, HF, SO,
+# S3, S4;
 # then the H2O-H2O and CO2-CO2 continua). Continua are not made major.
 echo 'Setting the major gas of each band'
 tidy_90 << EOF > "${SPECFILE_VENUS}_tidy_log" 2>&1
@@ -188,6 +198,8 @@ $COL_VENUS_HDO
 $COL_VENUS_HCl
 $COL_VENUS_HF
 $COL_VENUS_SO
+$COL_VENUS_S3
+$COL_VENUS_S4
 $COL_VENUS_H2OC
 $COL_VENUS_CO2C
 $P_SURF_VENUS

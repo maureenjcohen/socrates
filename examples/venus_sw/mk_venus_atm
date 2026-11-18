@@ -37,6 +37,8 @@ Ccdl2cdf -o venus.co2 venus_1.co2
 Ccdl2cdf -o venus.n2 venus_1.n2
 Ccdl2cdf -o venus.so2 venus_1.so2
 Ccdl2cdf -o venus.so so_vpcm_day.so
+Ccdl2cdf -o venus.s3 s3_kras13.s3
+Ccdl2cdf -o venus.s4 s4_kras13.s4
 #Ccdl2cdf -o venus.sulph venus_4_all.sulph
 # Mode 1 and the UV absorber, as VENUS_UV_ABSORBER selects (env_sw_280_venus).
 case "$VENUS_UV_ABSORBER" in

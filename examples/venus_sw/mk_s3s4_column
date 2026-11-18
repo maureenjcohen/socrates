@@ -1,0 +1,77 @@
+#!/usr/bin/env python3
+"""Writes the S3 and S4 profiles of the column, s3_kras13.s3 and
+s4_kras13.s4, from the abundances Krasnopolsky (2013, Icarus 225, 570)
+retrieves from the Venera 11 spectra with the cross-sections of
+mk_s3s4_uvxsc:
+
+  below 10 km   S3 11 ppt, S4 4 ppt (retrieved at 3-10 km; the same
+                values are kept down to the surface)
+  10-19 km      S3 18 ppt, S4 6 ppt
+  above 19 km   none (the spectra show no true absorption at 19-22 km)
+
+Layer heights come from hydrostatic balance on the temperatures of
+venus_atm_obs_so2.raw, as in mk_haus_cloud. A layer that straddles a step
+takes the height-weighted mean of the volume mixing ratio. Volume mixing
+ratios become mass mixing ratios with the mean molar mass of the column
+gas, from the gas constant of planet.nml.
+
+Output, in this directory, in the CDL layout of the other profile files.
+Prints each gas's column amount (kg m-2), the COL_VENUS_* values of
+env_sw_280_venus.
+
+Usage: mk_s3s4_column
+Runs on the host; needs only the Python 3 standard library.
+"""
+import importlib.machinery
+import importlib.util
+import os
+import sys
+
+sys.dont_write_bytecode = True
+HERE = os.path.dirname(os.path.abspath(__file__))
+_loader = importlib.machinery.SourceFileLoader(
+    'mk_haus_cloud', os.path.join(HERE, 'mk_haus_cloud'))
+_spec = importlib.util.spec_from_loader('mk_haus_cloud', _loader)
+hc = importlib.util.module_from_spec(_spec)
+_loader.exec_module(hc)
+
+R_UNIVERSAL = 8314.462618                 # J kmol-1 K-1
+M_MEAN = R_UNIVERSAL / hc.R_GAS           # kg kmol-1, mean of the column gas
+
+# Steps of the profile: upper bound of each step (km), volume mixing ratio.
+# file, CDL variable, CDL title, molar mass (kg kmol-1), steps
+GASES = [
+    ('s3_kras13.s3', 's3', 'Trisulphur', 96.195,
+     [(10.0, 11.0e-12), (19.0, 18.0e-12)]),
+    ('s4_kras13.s4', 's4', 'Tetrasulphur', 128.26,
+     [(10.0, 4.0e-12), (19.0, 6.0e-12)]),
+]
+NSUB = 200
+
+
+def vmr_at(z, steps):
+    for z_top, f in steps:
+        if z < z_top:
+            return f
+    return 0.0
+
+
+def main():
+    p_lay, t_lay, p_lev, _ = hc.read_atm(hc.ATM_FILE)
+    _, z_lev = hc.heights(p_lay, t_lay, p_lev)
+    for out, var, title, mol, steps in GASES:
+        q = []
+        for i in range(len(p_lay)):
+            z_hi, z_lo = z_lev[i], z_lev[i + 1]
+            f = sum(vmr_at(z_lo + (k + 0.5) * (z_hi - z_lo) / NSUB, steps)
+                    for k in range(NSUB)) / NSUB
+            qk = f * mol / M_MEAN
+            q.append(qk if qk >= hc.Q_MIN else 0.0)
+        hc.write_cdl(os.path.join(HERE, out), hc.TEMPLATE, var, title, q)
+        col = sum(qk * (p_lev[i + 1] - p_lev[i]) / hc.GRAV
+                  for i, qk in enumerate(q))
+        print('wrote %s; column %.4e kg m-2' % (out, col))
+
+
+if __name__ == '__main__':
+    main()

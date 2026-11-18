@@ -1,22 +1,28 @@
 #!/bin/bash
 # k-terms for the UV cross-sections of SO (gas 111) and CO2 (gas 2), from
-# the .uvxsc files of mk_so_uvxsc and mk_co2_uvxsc.
+# the .uvxsc files of mk_so_uvxsc and mk_co2_uvxsc, and for the visible
+# cross-sections of S3 (gas 112) and S4 (gas 113), from mk_s3s4_uvxsc.
 #
-# Both are fitted as temperature look-up tables: the p-T files hold one
-# pressure and the temperatures of the records, so the k-terms are those of
-# the data at each record temperature. The data carry no pressure
-# dependence.
+# SO and CO2 are fitted as temperature look-up tables: the p-T files hold
+# one pressure and the temperatures of the records, so the k-terms are
+# those of the data at each record temperature. The data carry no pressure
+# dependence. S3 and S4 have one record each and are fitted at the single
+# p-T point of pt_single, so their k-terms apply at every p and T.
 #   SO:  bands 3-15 (188.7-250 nm), one Ccorr_k call per band, so that one
 #        band can be tried alone and a stopped run resumes where it ended;
 #        0.01 cm-1 integration, the resolution of the data.
 #   CO2: bands 1-11 (175-230 nm), one call; 1 cm-1 integration, the
 #        spacing of the records.
-# Output in SP_DIR: so_u280_l (bands concatenated) and co2_u280_l, with
-# their monitoring files and logs.
+#   S3:  bands 36-85 (350-600 nm), S4: bands 51-80 (425-575 nm), the
+#        range of their data; 1 cm-1 integration, the spacing of the
+#        records.
+# Output in SP_DIR: so_u280_l (bands concatenated), co2_u280_l, s3_u280_l
+# and s4_u280_l, with their monitoring files and logs.
 #
 # Usage, inside the container: ./mk_uv_sw_280_venus [first SO band] [last SO band]
-# With band arguments only those SO bands are fitted, and CO2 is skipped.
-# Needs SOCRATES built with gas 111 (SO) in gas_list_pcf.F90.
+# With band arguments only those SO bands are fitted, and CO2, S3 and S4
+# are skipped.
+# Needs SOCRATES built with gases 111-113 (SO, S3, S4) in gas_list_pcf.F90.
 
 set -eu
 cd "$(dirname "$0")"
@@ -67,4 +73,23 @@ if [ ! -s "$SP_DIR/co2_u280_l" ] ; then
     -np $procs > "$SP_DIR/co2_u280_log"
 fi
 echo "CO2 UV: $SP_DIR/co2_u280_l"
+
+fit_single () {   # gas name, gas index, cross-sections, column, bands
+  local name=$1 index=$2 xsc=$3 col=$4 first=$5 last=$6
+  if [ -s "$SP_DIR/${name}_u280_l" ] ; then
+    echo "$name: done before"
+    return
+  fi
+  echo -n "$name: "; date
+  rm -f "$SP_DIR/${name}_u280_l"* "$SP_DIR/${name}_lbl_uv.nc"
+  Ccorr_k -F "$PT_UNSCALED" -UVX "$xsc" \
+    -R $first $last -i 1.0 -l $index $col -t 5.0e-4 \
+    -s "$SKELFILE_VENUS" +S "$SOLSPEC" \
+    -o "$SP_DIR/${name}_u280_l" -m "$SP_DIR/${name}_u280_lm" \
+    -L "$SP_DIR/${name}_lbl_uv.nc" \
+    -np $procs > "$SP_DIR/${name}_u280_log"
+}
+fit_single s3 112 "$S3_UVXSC" ${COL_MASS_K_S3} 36 85
+fit_single s4 113 "$S4_UVXSC" ${COL_MASS_K_S4} 51 80
+echo "S3, S4: $SP_DIR/s3_u280_l $SP_DIR/s4_u280_l"
 echo -n 'Finished: '; date

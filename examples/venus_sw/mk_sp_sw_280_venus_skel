@@ -12,14 +12,14 @@ if [ ! -s ${skelfile} ] ; then
 
 # Create skeleton spectral file:
 # 280 bands
-# 11 gases: H2O (1), CO2 (2), SO2 (9), N2 (13), CO (5), OCS (25), H2S (36), HDO (50), HCl (51), HF (52), SO (111)
+# 13 gases: H2O (1), CO2 (2), SO2 (9), N2 (13), CO (5), OCS (25), H2S (36), HDO (50), HCl (51), HF (52), SO (111), S3 (112), S4 (113)
 # 2 CIA: H2O-H2O, CO2-CO2
 # 5 aerosol: soluble (1) oceanic (3) soot (4), ash (5), sulphuric acid (6)
 # Bands specified in microns (u)
 prep_spec << EOF > ${skelfile}_log
 ${skelfile}
 280
-11
+13
 1
 2
 9
@@ -31,6 +31,8 @@ ${skelfile}
 51
 52
 111
+112
+113
 2
 1 1
 2 2
