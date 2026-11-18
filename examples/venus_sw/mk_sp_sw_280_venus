@@ -1,6 +1,7 @@
 #!/bin/bash
-# Assembles our own shortwave spectral file, sp_sw_280_venus, from k files
-# and optics that other scripts make. It fits nothing itself.
+# Assembles our own shortwave spectral file, sp_sw_280_venus_<absorber> for
+# the UV absorber VENUS_UV_ABSORBER selects, from k files and optics that
+# other scripts make. It fits nothing itself.
 #
 # Contents:
 #   bands, p-T grid, solar spectrum and Rayleigh scattering as the JE file;

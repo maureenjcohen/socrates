@@ -11,17 +11,17 @@ SKELFILE="$SP_DIR/sp_sw_280_je_venus_skel"
 SKELFILE_VENUS="$SP_DIR/sp_sw_280_venus_skel"
 
 # UV absorber, VENUS_UV_ABSORBER:
-#   crisp  Crisp (1986): absorption only, in the soluble slot (default);
+#   haus   Haus et al. (2015): absorption only, in the soluble slot, with
+#          their cross-section and profile (mk_haus_uv_absorber) (default);
+#   crisp  Crisp (1986): absorption only, in the soluble slot;
 #   ph     Perez-Hoyos et al. (2018): mode 1 above 65 km made of absorbing
 #          particles, in the soluble slot; mode 1 below 65 km stays plain
-#          acid in the soot slot (profiles from mk_haus_cloud);
-#   haus   Haus et al. (2015): absorption only, in the soluble slot, with
-#          their cross-section and profile (mk_haus_uv_absorber).
+#          acid in the soot slot (profiles from mk_haus_cloud).
 # It selects the soluble slot's optics (run_scatter), the soot and soluble
-# profiles (mk_venus_atm) and, for ph and haus, a spectral file of its own.
-VENUS_UV_ABSORBER="${VENUS_UV_ABSORBER:-crisp}"
+# profiles (mk_venus_atm) and the spectral file.
+VENUS_UV_ABSORBER="${VENUS_UV_ABSORBER:-haus}"
 case "$VENUS_UV_ABSORBER" in
-  crisp) SPECFILE_VENUS="$SP_DIR/sp_sw_280_venus" ;;
+  crisp) SPECFILE_VENUS="$SP_DIR/sp_sw_280_venus_crisp" ;;
   ph)    SPECFILE_VENUS="$SP_DIR/sp_sw_280_venus_ph" ;;
   haus)  SPECFILE_VENUS="$SP_DIR/sp_sw_280_venus_haus" ;;
   *)     echo "VENUS_UV_ABSORBER must be crisp, ph or haus, not $VENUS_UV_ABSORBER" >&2

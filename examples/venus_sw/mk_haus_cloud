@@ -71,8 +71,9 @@ MODES = [
 PH_MODE1_BASE_KM = 65.0
 PH_MODE1_TAU_063 = 3.2
 # Mass extinction (m2 kg-1) of mode 1 (75% acid, r_g 0.30 um, sigma_g 1.56)
-# at 0.63 um: mean of the two bands meeting there in sp_sw_280_venus. The
-# absorber adds nothing at this wavelength.
+# at 0.63 um: mean of the two bands meeting there in the soot slot of our
+# spectral file, the same for every UV absorber. The absorber adds nothing
+# at this wavelength.
 K_EXT_MODE1_063 = 4.715e3
 PH_MODE1_PARTS = [
     ('ph_mode1_lower.soot', 'soot', 'Soot', -math.inf, PH_MODE1_BASE_KM),

@@ -30,10 +30,9 @@ column_summary    band-summed fluxes and heating rates of column runs,
 Spectral file
 -------------
 env_sw_280_venus             paths, maximum absorber paths, data file names;
-                             the UV absorber switch VENUS_UV_ABSORBER, crisp
-                             (default), ph or haus, and for ph and haus the
-                             spectral files sp_sw_280_venus_ph and
-                             sp_sw_280_venus_haus
+                             the UV absorber switch VENUS_UV_ABSORBER, haus
+                             (default), crisp or ph, and the spectral file
+                             each uses: sp_sw_280_venus_<absorber>
 mk_sp_sw_280_je_venus_skel   skeleton: bands, gases, continua, aerosols
 mk_<gas>_lbl_sw_280_je_venus line-by-line absorption for one gas (slow)
 mk_sp_sw_280_je_venus        k-terms from the line-by-line files, then the
@@ -76,7 +75,7 @@ cis-OSSO.uvxsc, trans-OSSO.uvxsc, OSO-S.uvxsc, pt_single
 mk_sp_sw_280_venus_skel      skeleton of our own file: as the JE skeleton
                              with SO (gas 111) added and the OSSO isomers
                              left out
-mk_sp_sw_280_venus           assembles our own file, sp_sw_280_venus, from
+mk_sp_sw_280_venus           assembles our own file, sp_sw_280_venus_<absorber>, from
                              the k files of mk_sp_sw_280_je_venus and
                              mk_uv_sw_280_venus and the .mon files of
                              run_scatter, then makes the strongest absorber
