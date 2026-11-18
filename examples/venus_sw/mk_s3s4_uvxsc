@@ -1,0 +1,85 @@
+#!/usr/bin/env python3
+"""Writes s3.uvxsc and s4.uvxsc, the visible absorption cross-sections of
+S3 and S4 for Ccorr_k -UVX, as used by Krasnopolsky (2013, Icarus 225,
+570) to retrieve the S3 and S4 abundances below the Venus cloud from the
+Venera 11 spectra. Cross-sections and abundances belong together.
+
+S3, 350-475 nm, and S4, 425-575 nm: Billmers & Smith (1991, J. Phys. Chem.
+95, 4242), Table II, molar absorptivities every 25 nm from equilibrium
+sulphur vapour at about 750-850 K. They are decadic, so
+sigma = 1000 ln(10) / N_A * epsilon.
+
+S3, 500-600 nm: Krasnopolsky (1987, Adv. Space Res. 7(12), 25), the
+recommended curve of the figure, read off the scanned figure at 25 nm
+steps (500 and 600 nm as quoted in the abstract), times 1.4. Krasnopolsky
+(2013) applies that factor so the curve meets Billmers & Smith at 475 nm.
+
+Each species is one record on an evenly spaced 1 cm-1 grid over its data
+range, interpolated linearly in log(sigma) against wavelength between the
+25 nm points. Outside its range a species has no absorption. The data have
+no temperature or pressure dependence: fit them with the single-p-T file
+pt_single.
+
+Usage: mk_s3s4_uvxsc
+Runs on the host; needs only the Python 3 standard library.
+"""
+import math
+import os
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+
+N_AVOGADRO = 6.02214076e23
+EPS_TO_SIGMA = 1000.0 * math.log(10.0) / N_AVOGADRO   # cm2 per (L mol-1 cm-1)
+KR87_SCALE = 1.4
+DNU = 1.0           # cm-1, record spacing
+T_RECORD = 843.2    # K, cell temperature of the Billmers & Smith analysis
+
+# Billmers & Smith (1991) Table II: wavelength (nm), epsilon (L mol-1 cm-1).
+BS91_S3 = [(350, 7000), (375, 13270), (400, 15350), (425, 8895),
+           (450, 2150), (475, 510)]
+BS91_S4 = [(425, 35), (450, 665), (475, 890), (500, 1360), (525, 920),
+           (550, 595), (575, 475)]
+# Krasnopolsky (1987) recommended S3 curve: wavelength (nm), sigma (cm2).
+KR87_S3 = [(500, 6.0e-19), (525, 4.1e-19), (550, 2.64e-19),
+           (575, 1.09e-19), (600, 4.0e-20)]
+
+
+def table(bs91, kr87=()):
+    pts = [(w, e * EPS_TO_SIGMA) for w, e in bs91]
+    pts += [(w, s * KR87_SCALE) for w, s in kr87]
+    return sorted(pts)
+
+
+def sigma_at(wl, pts):
+    """log-linear interpolation in wavelength."""
+    for (w0, s0), (w1, s1) in zip(pts, pts[1:]):
+        if w0 <= wl <= w1:
+            f = (wl - w0) / (w1 - w0)
+            return math.exp((1.0 - f) * math.log(s0) + f * math.log(s1))
+    raise ValueError(wl)
+
+
+def write(name, pts, out):
+    nu_min = math.ceil(1.0e7 / pts[-1][0])
+    nu_max = math.floor(1.0e7 / pts[0][0])
+    n = int(round((nu_max - nu_min) / DNU)) + 1
+    sig = [sigma_at(1.0e7 / (nu_min + i * DNU), pts) for i in range(n)]
+    lines = ['%-20s%16.4f%16.4f%7d%7.2f%6.1f%16.9E %-5s%-15s    %-3s%3d'
+             % (name, nu_min, nu_max, n, T_RECORD, 0.0, max(sig), '',
+                'BS91Kr87', '', 0)]
+    for i in range(0, n, 10):
+        lines.append(''.join('%16.9E' % s for s in sig[i:i + 10]))
+    with open(os.path.join(HERE, out), 'w') as f:
+        f.write('\n'.join(lines) + '\n')
+    print('wrote %s: %d points, %.0f-%.0f cm-1' % (out, n, nu_min, nu_max))
+    for w, s in pts:
+        print('  %5.0f nm  %.3e cm2' % (w, s))
+
+
+def main():
+    write('S3', table(BS91_S3, KR87_S3), 's3.uvxsc')
+    write('S4', table(BS91_S4), 's4.uvxsc')
+
+
+if __name__ == '__main__':
+    main()
