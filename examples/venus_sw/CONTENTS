@@ -31,8 +31,9 @@ Spectral file
 -------------
 env_sw_280_venus             paths, maximum absorber paths, data file names;
                              the UV absorber switch VENUS_UV_ABSORBER, crisp
-                             (default) or ph, and for ph the spectral file
-                             sp_sw_280_venus_ph
+                             (default), ph or haus, and for ph and haus the
+                             spectral files sp_sw_280_venus_ph and
+                             sp_sw_280_venus_haus
 mk_sp_sw_280_je_venus_skel   skeleton: bands, gases, continua, aerosols
 mk_<gas>_lbl_sw_280_je_venus line-by-line absorption for one gas (slow)
 mk_sp_sw_280_je_venus        k-terms from the line-by-line files, then the
@@ -53,6 +54,13 @@ mk_ph_refract                UV absorber of Perez-Hoyos et al. (2018) in
                              (peak 1.36e-2 at 0.34 um, FWHM 0.14 um)
                              -> refract_sulphuric_75_ph, and the 5 nm
                              wavelength grid wl_venus_uv for Cscatter -w
+mk_haus_uv_absorber          UV absorber of Haus et al. (2015): absorption
+                             only, in the "soluble" slot ->
+                             haus_uv_absorber.mon, and its column profile
+                             haus_uv_absorber.wtsol (58-70 km, optical
+                             depth 0.205 at 0.35 um)
+haus2015_uv_absorber.txt     Haus et al. (2015) Fig. 18 absorber
+                             cross-section, as the Venus PCM tabulates it
 run_scatter_acid             the same Mie optics with every mode made of
                              acid of one refractive index file
 refract_sulphuric_75_pw, refract_sulphuric_84p5, refract_sulphuric_95p6
@@ -93,7 +101,8 @@ Column runs
 mk_venus_atm            venus_atm_obs_so2.raw, the haus_mode* cloud
                         profiles, the UV absorber's profiles (crisp:
                         crisp_uv_absorber.wtsol; ph: mode 1 split into
-                        ph_mode1_lower.soot and ph_mode1_upper.wtsol) and
+                        ph_mode1_lower.soot and ph_mode1_upper.wtsol;
+                        haus: haus_uv_absorber.wtsol) and
                         so_vpcm_day.so -> venus.<suffix> netCDF inputs
 mk_so_column            SO profile of the column -> so_vpcm_day.so, from
                         so_day_mean_vpcm.txt (Venus PCM day mean)

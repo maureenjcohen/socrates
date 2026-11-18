@@ -46,6 +46,9 @@ case "$VENUS_UV_ABSORBER" in
   ph)
     Ccdl2cdf -o venus.soot ph_mode1_lower.soot
     Ccdl2cdf -o venus.wtsol ph_mode1_upper.wtsol ;;
+  haus)
+    Ccdl2cdf -o venus.soot haus_mode1.soot
+    Ccdl2cdf -o venus.wtsol haus_uv_absorber.wtsol ;;
 esac
 Ccdl2cdf -o venus.sulph haus_mode2.sulph
 Ccdl2cdf -o venus.ocn haus_modep.oceanic

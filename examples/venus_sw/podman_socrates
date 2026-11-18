@@ -12,7 +12,7 @@
 #   VENUS_SW_WORK     work directory for line-by-line and k files (required)
 #   LINE_DATA_DIR     directory holding the HITRAN line lists (required)
 #   VENUS_SW_PROCS    OpenMP threads per Ccorr_k call (optional)
-#   VENUS_UV_ABSORBER UV absorber, crisp (default) or ph (optional)
+#   VENUS_UV_ABSORBER UV absorber, crisp (default), ph or haus (optional)
 #   CONTAINER_ENGINE  podman (default) or docker
 #   LFRIC_DEV_IMAGE   image name (default docker.io/maureenjcohen/lfric_dev:amd64)
 

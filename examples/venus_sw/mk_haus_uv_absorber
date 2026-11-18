@@ -1,0 +1,154 @@
+#!/usr/bin/env python3
+"""Writes the optics and the column profile of the unknown UV absorber,
+following the nominal model of Haus et al. (2015, Planet. Space Sci. 117,
+262), as the Venus PCM uses it.
+
+The absorber is a separate absorbing agent, not part of a cloud mode: an
+absorption cross-section sigma(lambda) (haus2015_uv_absorber.txt) carried
+by a number density profile N(z) of 10 cm-3 from 58 to 70 km, falling off
+with a 1 km scale height above and below (Haus et al. Table 1, Eq. T1).
+The column absorbing optical depth at 0.35 um is set to 0.205, the value
+the Venus PCM scales the absorber to; sigma and N(z) as published give
+0.203.
+
+haus_uv_absorber.mon
+    Single-scattering file for the "soluble" aerosol slot: absorption
+    proportional to sigma, no scattering. Its mass absorption coefficient
+    is K_REF * sigma / sigma(0.35 um), given the conventional density of
+    1000 kg m-3 that converts the file to mass-specific values.
+haus_uv_absorber.wtsol
+    Mixing ratio profile for the column, so that each layer holds the
+    absorbing optical depth of N(z) over its thickness.
+
+Usage: mk_haus_uv_absorber
+Runs on the host; needs only the Python 3 standard library.
+"""
+import importlib.machinery
+import importlib.util
+import math
+import os
+import sys
+
+sys.dont_write_bytecode = True
+HERE = os.path.dirname(os.path.abspath(__file__))
+_loader = importlib.machinery.SourceFileLoader(
+    'mk_haus_cloud', os.path.join(HERE, 'mk_haus_cloud'))
+_spec = importlib.util.spec_from_loader('mk_haus_cloud', _loader)
+hc = importlib.util.module_from_spec(_spec)
+_loader.exec_module(hc)
+
+SIGMA_FILE = os.path.join(HERE, 'haus2015_uv_absorber.txt')
+MON_FILE = os.path.join(HERE, 'haus_uv_absorber.mon')
+PROFILE_FILE = os.path.join(HERE, 'haus_uv_absorber.wtsol')
+
+# Column absorbing optical depth at the reference wavelength.
+TAU_REF = 0.205
+WL_REF = 0.35e-6
+# Profile N(z): constant from Z_BOT to Z_TOP (km), scale height H (km)
+# above and below. Only its shape matters, as the column is scaled to
+# TAU_REF.
+Z_BOT = 58.0
+Z_TOP = 70.0
+H = 1.0
+# Mass absorption coefficient (m2 kg-1) at the reference wavelength. Any
+# value works; this one gives mixing ratios of the size of the cloud modes'.
+K_REF = 1000.0
+# Volume fraction stated in the .mon header.
+VOL_FRAC = 1.0e-6
+# Wavelengths (m) at which the absorption is set to zero, closing the
+# table at both ends.
+WL_ZERO_LO = 1.0e-7
+WL_ZERO_HI = 1.1e-6
+
+
+def read_sigma(path):
+    rows = []
+    with open(path) as f:
+        for line in f:
+            s = line.split()
+            if s and not line.startswith('#'):
+                rows.append((float(s[0]) * 1e-6, float(s[1])))
+    return rows
+
+
+def interp(x, rows):
+    for (x0, y0), (x1, y1) in zip(rows, rows[1:]):
+        if x0 <= x <= x1:
+            return y0 + (x - x0) / (x1 - x0) * (y1 - y0)
+    sys.exit('%g m is outside the cross-section table' % x)
+
+
+def write_mon(path, pts, sigma_ref):
+    out = ['', '*FILE TYPE =     6', '',
+           '                Single scattering parameters.', '', '',
+           'Scattering algorithm =     1   (%-40s)' % 'Full Mie scattering calculation',
+           'Scattering type      =     1   (%-20s)' % 'Aerosol',
+           'Component            =     1   (%-20s)' % 'Water soluble',
+           '',
+           'Number density   = %12.5E m-3' % 1.0,
+           'Effective radius = %12.5E m' % 1.0e-6,
+           'Volume fraction  = %12.5E' % VOL_FRAC,
+           '',
+           '    Wavelength (m)      Absorption (m-1)    Scattering (m-1)'
+           '     Moments of pf']
+    for wl, s in pts:
+        absorption = K_REF * s / sigma_ref * VOL_FRAC * hc.RHO_CONV
+        out.append('    %16.9E    %16.9E    %16.9E    %16.9E'
+                   % (wl, absorption, 0.0, 0.0))
+    out.append(' ')
+    with open(path, 'w') as f:
+        f.write('\n'.join(out) + '\n')
+
+
+def number_density(z):
+    """Relative N(z) of Haus et al. Eq. T1, nominal case."""
+    if z > Z_TOP:
+        return math.exp(-(z - Z_TOP) / H)
+    if z < Z_BOT:
+        return math.exp(-(Z_BOT - z) / H)
+    return 1.0
+
+
+def layer_integral(z_hi, z_lo, nsub=200):
+    """Integral of N(z) dz (km) over a layer; the profile's edges are
+    sharper than a layer is thick."""
+    dz = (z_hi - z_lo) / nsub
+    return sum(number_density(z_lo + (k + 0.5) * dz)
+               for k in range(nsub)) * dz
+
+
+def main():
+    rows = read_sigma(SIGMA_FILE)
+    sigma_ref = interp(WL_REF, rows)
+    pts = [(WL_ZERO_LO, 0.0)] + rows + [(WL_ZERO_HI, 0.0)]
+    write_mon(MON_FILE, pts, sigma_ref)
+
+    p_lay, t_lay, p_lev, _ = hc.read_atm(hc.ATM_FILE)
+    z, z_lev = hc.heights(p_lay, t_lay, p_lev)
+    n = len(p_lay)
+    col = [layer_integral(z_lev[i], z_lev[i + 1]) for i in range(n)]
+    total = sum(col)
+    dtau = [TAU_REF * c / total for c in col]
+    dmass = [(p_lev[i + 1] - p_lev[i]) / hc.GRAV for i in range(n)]
+    q = [d / (K_REF * m) for d, m in zip(dtau, dmass)]
+    q = [qk if qk >= hc.Q_MIN else 0.0 for qk in q]
+    hc.write_cdl(PROFILE_FILE, hc.TEMPLATE, 'wtsol',
+                 'Water Soluble Aerosol', q)
+
+    peak_wl, peak_s = max(rows, key=lambda r: r[1])
+    tau_col = sum(qk * m * K_REF for qk, m in zip(q, dmass))
+    print('sigma at %.3f um: %.4f (table units); peak %.4f at %.3f um'
+          % (WL_REF * 1e6, sigma_ref, peak_s, peak_wl * 1e6))
+    print('column absorbing optical depth: %.4f at %.3f um, %.4f at the '
+          'peak' % (tau_col, WL_REF * 1e6, tau_col * peak_s / sigma_ref))
+    print('N(z) column: %.2f km at the plateau density' % total)
+    kmax = max(range(n), key=lambda k: q[k])
+    above64 = sum(d for d, zk in zip(dtau, z) if zk > 64.4) / TAU_REF
+    print('max q %.3e at %.1f km; %.0f%% of the optical depth above 64.4 km'
+          % (q[kmax], z[kmax], 100.0 * above64))
+    print('wrote %s, %s' % (os.path.basename(MON_FILE),
+                            os.path.basename(PROFILE_FILE)))
+
+
+if __name__ == '__main__':
+    main()

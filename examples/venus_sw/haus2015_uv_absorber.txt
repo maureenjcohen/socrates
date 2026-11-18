@@ -1,0 +1,46 @@
+# Absorption cross-section of the unknown Venus UV absorber, nominal model.
+#
+# Source: Haus, R., D. Kappel and G. Arnold (2015), "Radiative heating and
+#   cooling in the middle and lower atmosphere of Venus and responses to
+#   atmospheric and spectroscopic parameter variations", Planet. Space Sci.
+#   117, 262-294, Fig. 18 (case 1, nominal model). The paper gives the
+#   cross-section only as a figure; these values are the numerical table of
+#   it used by the Venus PCM (datagcm/aerosol_properties/
+#   optprop_venusUVvis.dat, there labelled relative extinction).
+#
+# sigma is in units of 1e-8 cm2 per absorbing particle: Haus et al. give a
+# maximum of about 1e-8 cm2 at 0.35 um, and with their profile (10 cm-3
+# from 58 to 70 km, 1 km scale heights above and below) these values give
+# a column optical depth of 0.203 at 0.35 um, against the 0.205 to which
+# the Venus PCM scales it. Single-scattering albedo zero: absorption only.
+#
+# wavelength_um   sigma_1e-8cm2
+  0.28169        1.00000e-03
+  0.30030        1.00000e-02
+  0.30488        3.50000e-02
+  0.30960        1.10000e-01
+  0.31496        5.50000e-01
+  0.32489        1.00000e+00
+  0.33490        1.30000e+00
+  0.34495        1.40000e+00
+  0.35499        1.50000e+00
+  0.36496        1.40000e+00
+  0.37495        1.30000e+00
+  0.38491        1.10000e+00
+  0.39494        9.30000e-01
+  0.40984        7.20000e-01
+  0.42974        5.00000e-01
+  0.44984        3.85000e-01
+  0.46970        3.30000e-01
+  0.48972        2.65000e-01
+  0.50968        2.30000e-01
+  0.52994        2.05000e-01
+  0.54975        1.85000e-01
+  0.56980        1.70000e-01
+  0.58997        1.60000e-01
+  0.60976        1.42000e-01
+  0.69108        1.00000e-01
+  0.78125        5.30000e-02
+  0.80000        4.00000e-02
+  0.90000        1.00000e-03
+  1.00000        1.00000e-05
